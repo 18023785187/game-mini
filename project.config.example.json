@@ -1,0 +1,18 @@
+{
+  "miniprogramRoot": "src/",
+  "setting": {
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "newFeature": true,
+    "useCompilerPlugins": ["typescript"]
+  },
+  "compileType": "game",
+  "appid": "",
+  "projectname": "cc-miniprogram",
+  "description": "2.5D横屏微信小游戏",
+  "simulatorType": "wechat",
+  "simulatorPluginLibVersion": {},
+  "condition": {}
+}
