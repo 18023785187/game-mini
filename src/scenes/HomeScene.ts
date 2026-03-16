@@ -7,8 +7,8 @@ import { Button, TouchManager } from '../ui/Button';
 export class HomeScene {
   private ctx: CanvasRenderingContext2D;
   private touchManager: TouchManager;
-  private startButton: Button;
-  private settingsButton: Button;
+  private singlePlayerButton: Button;
+  private multiPlayerButton: Button;
   private animationTime: number = 0;
   private width: number;
   private height: number;
@@ -23,45 +23,45 @@ export class HomeScene {
     const centerX = width / 2;
     const buttonWidth = 200;
     const buttonHeight = 60;
+    const buttonStartY = height / 2 - 30; // 按钮起始位置上移
 
-    this.startButton = new Button({
+    this.singlePlayerButton = new Button({
       x: centerX - buttonWidth / 2,
-      y: height / 2 + 50,
+      y: buttonStartY,
       width: buttonWidth,
       height: buttonHeight,
-      text: '开始游戏',
+      text: '单人模式',
       fontSize: 28,
     });
 
-    this.settingsButton = new Button({
+    this.multiPlayerButton = new Button({
       x: centerX - buttonWidth / 2,
-      y: height / 2 + 130,
+      y: buttonStartY + 80,
       width: buttonWidth,
       height: buttonHeight,
-      text: '游戏设置',
-      fontSize: 24,
-      backgroundColor: '#666666',
+      text: '双人模式',
+      fontSize: 28,
     });
 
     // 注册按钮事件
-    this.touchManager.addButton(this.startButton, this.handleStart.bind(this));
-    this.touchManager.addButton(this.settingsButton, this.handleSettings.bind(this));
+    this.touchManager.addButton(this.singlePlayerButton, this.handleSinglePlayer.bind(this));
+    this.touchManager.addButton(this.multiPlayerButton, this.handleMultiPlayer.bind(this));
   }
 
   /**
-   * 处理开始游戏
+   * 处理单人模式
    */
-  private handleStart(): void {
-    console.log('开始游戏');
+  private handleSinglePlayer(): void {
+    console.log('单人模式');
     gameState.setState(GameState.CHARACTER_SELECT);
   }
 
   /**
-   * 处理设置
+   * 处理双人模式
    */
-  private handleSettings(): void {
-    console.log('打开设置');
-    // TODO: 实现设置页面
+  private handleMultiPlayer(): void {
+    console.log('双人模式');
+    // TODO: 实现双人模式
   }
 
   /**
@@ -93,8 +93,8 @@ export class HomeScene {
     this.drawTitle();
 
     // 绘制按钮
-    this.startButton.draw(ctx);
-    this.settingsButton.draw(ctx);
+    this.singlePlayerButton.draw(ctx);
+    this.multiPlayerButton.draw(ctx);
 
     // 绘制版本信息
     ctx.fillStyle = '#666666';
