@@ -7,8 +7,13 @@ interface CanvasGradient {
   addColorStop(offset: number, color: string): void;
 }
 
+/**
+ * 图片源类型
+ */
+type CanvasImageSource = HTMLCanvasElement | ImageBitmap;
+
 interface CanvasRenderingContext2D {
-  canvas: any;
+  canvas: HTMLCanvasElement;
   fillStyle: string | CanvasGradient;
   strokeStyle: string | CanvasGradient;
   lineWidth: number;
@@ -48,9 +53,9 @@ interface CanvasRenderingContext2D {
   strokeText(text: string, x: number, y: number, maxWidth?: number): void;
   measureText(text: string): TextMetrics;
 
-  drawImage(image: any, dx: number, dy: number): void;
-  drawImage(image: any, dx: number, dy: number, dWidth: number, dHeight: number): void;
-  drawImage(image: any, sx: number, sy: number, sWidth: number, sHeight: number, dx: number, dy: number, dWidth: number, dHeight: number): void;
+  drawImage(image: CanvasImageSource, dx: number, dy: number): void;
+  drawImage(image: CanvasImageSource, dx: number, dy: number, dWidth: number, dHeight: number): void;
+  drawImage(image: CanvasImageSource, sx: number, sy: number, sWidth: number, sHeight: number, dx: number, dy: number, dWidth: number, dHeight: number): void;
 
   clip(fillRule?: 'nonzero' | 'evenodd'): void;
   isPointInPath(x: number, y: number, fillRule?: 'nonzero' | 'evenodd'): boolean;

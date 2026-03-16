@@ -1,4 +1,12 @@
 /**
+ * 微信触摸事件类型
+ */
+interface WxTouchEvent {
+  touches: Array<{ clientX: number; clientY: number }>;
+  changedTouches: Array<{ clientX: number; clientY: number }>;
+}
+
+/**
  * 触摸事件类型
  */
 export interface TouchPoint {
@@ -211,7 +219,7 @@ export class TouchManager {
   /**
    * 处理触摸开始
    */
-  private handleTouchStart(e: any): void {
+  private handleTouchStart(e: WxTouchEvent): void {
     if (!this.currentSceneId) return;
 
     const data = this.sceneButtons.get(this.currentSceneId);
@@ -231,7 +239,7 @@ export class TouchManager {
   /**
    * 处理触摸结束
    */
-  private handleTouchEnd(e: any): void {
+  private handleTouchEnd(e: WxTouchEvent): void {
     if (!this.currentSceneId) return;
 
     const data = this.sceneButtons.get(this.currentSceneId);

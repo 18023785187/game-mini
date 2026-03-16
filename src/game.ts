@@ -1,9 +1,18 @@
 /// <reference types="minigame-api-typings" />
 
-import { GameState, gameState, gameConfig } from './core/GameState';
+import { GameState, gameState, gameConfig, StateData } from './core/GameState';
 import { TouchManager } from './ui/Button';
 import { HomeScene } from './scenes/HomeScene';
 import { RoomScene } from './scenes/RoomScene';
+
+/**
+ * 场景接口
+ */
+interface Scene {
+  update(deltaTime: number): void;
+  render(): void;
+  destroy?(): void;
+}
 
 /**
  * 游戏主入口
@@ -28,7 +37,7 @@ let lastTime = 0;
 let touchManager: TouchManager;
 let homeScene: HomeScene | null = null;
 let roomScene: RoomScene | null = null;
-let currentScene: any = null;
+let currentScene: Scene | null = null;
 
 /**
  * 初始化游戏
@@ -55,9 +64,18 @@ function init(): void {
 }
 
 /**
+ * 微信启动参数类型
+ */
+interface WxLaunchOptions {
+  query?: { [key: string]: string };
+  scene?: number;
+  roomId?: string;
+}
+
+/**
  * 处理启动参数
  */
-function handleLaunchOptions(options: any, isLaunch: boolean): void {
+function handleLaunchOptions(options: WxLaunchOptions, isLaunch: boolean): void {
   console.log('启动参数:', JSON.stringify(options));
   console.log('query:', options?.query);
   console.log('scene:', options?.scene);
@@ -90,7 +108,7 @@ function handleLaunchOptions(options: any, isLaunch: boolean): void {
 /**
  * 处理游戏状态变化
  */
-function handleStateChange(state: GameState, data?: any): void {
+function handleStateChange(state: GameState, data?: StateData): void {
   console.log(`游戏状态变化: ${state}`);
 
   // 销毁当前场景（清理非按钮资源，如事件监听器）

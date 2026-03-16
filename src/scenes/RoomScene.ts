@@ -18,6 +18,13 @@ interface SeatConfig {
 }
 
 /**
+ * 微信触摸事件类型
+ */
+interface WxTouchEvent {
+  changedTouches: Array<{ clientX: number; clientY: number }>;
+}
+
+/**
  * 房间场景
  */
 export class RoomScene {
@@ -29,7 +36,7 @@ export class RoomScene {
   private animationTime: number = 0;
   private room: Room | null = null;
   private isHost: boolean = false;
-  private seatTouchHandler: ((e: any) => void) | null = null;
+  private seatTouchHandler: ((e: WxTouchEvent) => void) | null = null;
 
   // UI元素
   private readyButton: Button;
@@ -117,7 +124,7 @@ export class RoomScene {
    * 设置席位触摸处理
    */
   private setupSeatTouchHandler(): void {
-    this.seatTouchHandler = (e: any) => {
+    this.seatTouchHandler = (e: WxTouchEvent) => {
       const touch = e.changedTouches[0];
       const point: TouchPoint = { x: touch.clientX, y: touch.clientY };
 

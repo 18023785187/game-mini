@@ -47,9 +47,9 @@ export type RoomChangeListener = (room: Room) => void;
  * 房间服务 - 基于 CloudBase 实现
  */
 export class RoomService {
-  private db: any = null;
-  private collection: any = null;
-  private watcher: any = null;
+  private db: DB.Database | null = null;
+  private collection: DB.CollectionReference | null = null;
+  private watcher: DB.RealtimeListener | null = null;
   private currentRoom: Room | null = null;
   private currentPlayerId: string = '';
   private listeners: RoomChangeListener[] = [];
@@ -184,7 +184,7 @@ export class RoomService {
 
     try {
       console.log(`正在创建房间: ${roomId}`);
-      await this.collection.add({
+      await this.collection!.add({
         data: {
           _id: roomId,
           ...room,
@@ -218,7 +218,7 @@ export class RoomService {
     try {
       // 查询房间
       console.log(`正在查询房间: ${roomId}`);
-      const res = await this.collection.doc(roomId).get();
+      const res = await this.collection!.doc(roomId).get();
       console.log('查询结果:', JSON.stringify(res));
 
       if (!res.data) {
@@ -245,7 +245,7 @@ export class RoomService {
       room.players.push(player);
       console.log(`添加玩家到房间: ${JSON.stringify(player)}`);
 
-      await this.collection.doc(roomId).update({
+      await this.collection!.doc(roomId).update({
         data: {
           players: room.players,
         },
@@ -287,7 +287,7 @@ export class RoomService {
     }
 
     try {
-      await this.collection.doc(this.currentRoom.id).update({
+      await this.collection!.doc(this.currentRoom.id).update({
         data: {
           players: this.currentRoom.players,
           status: this.currentRoom.status,
@@ -308,17 +308,17 @@ export class RoomService {
       this.watcher.close();
     }
 
-    this.watcher = this.collection
+    this.watcher = this.collection!
       .doc(roomId)
       .watch({
-        onChange: (snapshot: any) => {
+        onChange: (snapshot: DB.ISnapshot) => {
           const doc = snapshot.docChanges[0];
           if (doc && doc.doc) {
             this.currentRoom = doc.doc as Room;
             this.notifyListeners();
           }
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
           console.error('房间监听错误:', error);
         },
       });
@@ -342,13 +342,13 @@ export class RoomService {
       );
 
       if (currentPlayer?.isHost) {
-        await this.collection.doc(this.currentRoom.id).remove();
+        await this.collection!.doc(this.currentRoom.id).remove();
       } else {
         // 否则移除玩家
         const players = this.currentRoom.players.filter(
           (p) => p.id !== this.currentPlayerId
         );
-        await this.collection.doc(this.currentRoom.id).update({
+        await this.collection!.doc(this.currentRoom.id).update({
           data: { players },
         });
       }

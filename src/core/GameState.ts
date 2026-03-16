@@ -19,13 +19,26 @@ export interface GameConfig {
 }
 
 /**
+ * 状态附加数据类型
+ */
+export interface StateData {
+  roomId?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * 状态变化监听器类型
+ */
+export type StateChangeListener = (state: GameState, data?: StateData) => void;
+
+/**
  * 游戏状态管理器
  */
 export class GameStateManager {
   private currentState: GameState = GameState.HOME;
   private previousState: GameState | null = null;
-  private listeners: ((state: GameState, data?: any) => void)[] = [];
-  private currentData: any = null;
+  private listeners: StateChangeListener[] = [];
+  private currentData: StateData | null = null;
 
   /**
    * 获取当前状态
@@ -37,14 +50,14 @@ export class GameStateManager {
   /**
    * 获取当前状态数据
    */
-  getData(): any {
+  getData(): StateData | null {
     return this.currentData;
   }
 
   /**
    * 设置状态
    */
-  setState(state: GameState, data?: any): void {
+  setState(state: GameState, data?: StateData): void {
     if (this.currentState !== state || data !== undefined) {
       this.previousState = this.currentState;
       this.currentState = state;
@@ -65,14 +78,14 @@ export class GameStateManager {
   /**
    * 添加状态变化监听器
    */
-  addListener(listener: (state: GameState, data?: any) => void): void {
+  addListener(listener: StateChangeListener): void {
     this.listeners.push(listener);
   }
 
   /**
    * 通知所有监听器
    */
-  private notifyListeners(data?: any): void {
+  private notifyListeners(data?: StateData): void {
     this.listeners.forEach(listener => listener(this.currentState, data));
   }
 }
