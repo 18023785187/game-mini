@@ -68,6 +68,10 @@ interface CanvasRenderingContext2D {
   shadowOffsetX: number;
   shadowOffsetY: number;
   imageSmoothingEnabled: boolean;
+  filter: string;
+
+  // 椭圆绘制方法
+  ellipse(x: number, y: number, radiusX: number, radiusY: number, rotation: number, startAngle: number, endAngle: number, anticlockwise?: boolean): void;
 }
 
 interface TextMetrics {

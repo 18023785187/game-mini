@@ -7,6 +7,7 @@ import {
   getAllCharacterIds,
 } from '../types/Character';
 import { roomService } from '../services/RoomService';
+import { CharacterRenderer } from '../renderers/CharacterRenderer';
 
 /**
  * 选择阶段
@@ -45,6 +46,7 @@ export class CharacterSelectScene {
   private width: number;
   private height: number;
   private animationTime: number = 0;
+  private characterRenderer: CharacterRenderer;
 
   // 模式相关
   private isMultiPlayer: boolean;
@@ -75,6 +77,9 @@ export class CharacterSelectScene {
     this.width = width;
     this.height = height;
 
+    // 初始化角色渲染器
+    this.characterRenderer = new CharacterRenderer(ctx);
+
     // 判断模式：如果有房间信息则为双人模式
     this.isMultiPlayer = !!roomService.getCurrentRoom();
 
@@ -88,7 +93,7 @@ export class CharacterSelectScene {
     // 创建按钮
     const buttonWidth = 180;
     const buttonHeight = 60;
-    const buttonY = height * 0.74;
+    const buttonY = height * 0.80;
 
     this.confirmButton = new Button({
       x: width / 2 - buttonWidth / 2,
@@ -130,11 +135,11 @@ export class CharacterSelectScene {
    * 计算角色卡片位置
    */
   private calculateCardPositions(): void {
-    const cardWidth = this.width * 0.26;
-    const cardHeight = this.height * 0.38;
-    const gap = this.width * 0.05;
+    const cardWidth = this.width * 0.28;
+    const cardHeight = this.height * 0.48;
+    const gap = this.width * 0.04;
     const startX = (this.width - cardWidth * 3 - gap * 2) / 2;
-    const startY = this.height * 0.32;
+    const startY = this.height * 0.28;
 
     const characterIds = getAllCharacterIds();
     this.cardConfigs = characterIds.map((_id, index) => ({
@@ -250,6 +255,7 @@ export class CharacterSelectScene {
    */
   update(deltaTime: number): void {
     this.animationTime += deltaTime;
+    this.characterRenderer.update(deltaTime);
   }
 
   /**
@@ -413,68 +419,12 @@ export class CharacterSelectScene {
     cardWidth: number,
     cardHeight: number
   ): void {
-    const ctx = this.ctx;
     const centerX = cardX + cardWidth / 2;
-    const centerY = cardY + cardHeight * 0.42;
-    const iconSize = Math.min(cardWidth, cardHeight) * 0.4;
+    const centerY = cardY + cardHeight * 0.45;
+    const iconSize = Math.min(cardWidth, cardHeight) * 0.5;
 
-    // 绘制光晕背景
-    const glowGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, iconSize * 1.2);
-    glowGradient.addColorStop(0, `${character.color}88`);
-    glowGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = glowGradient;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, iconSize * 1.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 绘制圆形背景
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, iconSize * 0.85, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 绘制图标
-    ctx.strokeStyle = character.color;
-    ctx.lineWidth = 6;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    const halfSize = iconSize * 0.55;
-
-    if (character.iconShape === 'sword') {
-      // 剑图标
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY - halfSize);
-      ctx.lineTo(centerX, centerY + halfSize);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(centerX - halfSize * 0.5, centerY - halfSize * 0.4);
-      ctx.lineTo(centerX + halfSize * 0.5, centerY - halfSize * 0.4);
-      ctx.stroke();
-    } else if (character.iconShape === 'gun') {
-      // 枪图标
-      ctx.beginPath();
-      ctx.moveTo(centerX - halfSize, centerY);
-      ctx.lineTo(centerX + halfSize, centerY);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(centerX + halfSize * 0.4, centerY - halfSize * 0.4);
-      ctx.lineTo(centerX + halfSize * 0.4, centerY + halfSize * 0.4);
-      ctx.stroke();
-    } else if (character.iconShape === 'shield') {
-      // 盾牌图标
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY - halfSize);
-      ctx.lineTo(centerX + halfSize, centerY - halfSize * 0.3);
-      ctx.lineTo(centerX + halfSize * 0.5, centerY + halfSize);
-      ctx.lineTo(centerX, centerY + halfSize * 0.7);
-      ctx.lineTo(centerX - halfSize * 0.5, centerY + halfSize);
-      ctx.lineTo(centerX - halfSize, centerY - halfSize * 0.3);
-      ctx.closePath();
-      ctx.stroke();
-    }
+    // 使用角色渲染器绘制预览
+    this.characterRenderer.drawPreview(character, centerX, centerY, iconSize);
   }
 
   /**
@@ -489,11 +439,11 @@ export class CharacterSelectScene {
   ): void {
     const ctx = this.ctx;
     const centerX = cardX + cardWidth / 2;
-    const nameY = cardY + cardHeight * 0.82;
+    const nameY = cardY + cardHeight * 0.85;
 
     // 角色名称
     ctx.fillStyle = character.color;
-    ctx.font = 'bold 32px Arial';
+    ctx.font = 'bold 30px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(character.name, centerX, nameY);
