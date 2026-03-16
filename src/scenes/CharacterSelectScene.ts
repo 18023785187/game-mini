@@ -424,6 +424,7 @@ export class CharacterSelectScene {
     ctx.fillText(title, width / 2, 55);
 
     // 重置阴影
+    ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
 
     // 副标题
@@ -540,6 +541,7 @@ export class CharacterSelectScene {
       ctx.beginPath();
       this.drawRoundRect(ctx, x - cardWidth/2, y - cardHeight/2, cardWidth, cardHeight, 12);
       ctx.stroke();
+      ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
     }
 
@@ -601,6 +603,9 @@ export class CharacterSelectScene {
       ctx.fill();
       ctx.shadowBlur = 0;
     }
+    
+    // 重置阴影颜色，避免影响其他场景
+    ctx.shadowColor = 'transparent';
   }
 
   /**

@@ -327,6 +327,7 @@ export class RoomScene {
     ctx.fillText('对战房间', width / 2, 60);
 
     // 重置阴影
+    ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
   }
 
