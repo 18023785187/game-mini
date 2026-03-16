@@ -67,7 +67,7 @@ export class Button {
     // 绘制按钮背景
     ctx.fillStyle = this.isPressed ? '#3a7bc8' : backgroundColor;
     ctx.beginPath();
-    ctx.roundRect(x, y, width, height, borderRadius);
+    this.drawRoundRect(ctx, x, y, width, height, borderRadius);
     ctx.fill();
 
     // 绘制按钮边框
@@ -81,6 +81,22 @@ export class Button {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, x + width / 2, y + height / 2);
+  }
+
+  /**
+   * 绘制圆角矩形路径
+   */
+  private drawRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.arcTo(x + width, y, x + width, y + radius, radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+    ctx.lineTo(x + radius, y + height);
+    ctx.arcTo(x, y + height, x, y + height - radius, radius);
+    ctx.lineTo(x, y + radius);
+    ctx.arcTo(x, y, x + radius, y, radius);
+    ctx.closePath();
   }
 
   /**
