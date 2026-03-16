@@ -23,7 +23,7 @@ export class HomeScene {
     const centerX = width / 2;
     const buttonWidth = 200;
     const buttonHeight = 60;
-    const buttonStartY = height / 2 - 30; // 按钮起始位置上移
+    const buttonStartY = height / 2 + 20; // 按钮起始位置
 
     this.singlePlayerButton = new Button({
       x: centerX - buttonWidth / 2,
