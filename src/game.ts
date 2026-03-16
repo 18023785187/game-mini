@@ -4,6 +4,7 @@ import { GameState, gameState, gameConfig, StateData } from './core/GameState';
 import { TouchManager } from './ui/Button';
 import { HomeScene } from './scenes/HomeScene';
 import { RoomScene } from './scenes/RoomScene';
+import { CharacterSelectScene } from './scenes/CharacterSelectScene';
 
 /**
  * 场景接口
@@ -37,6 +38,7 @@ let lastTime = 0;
 let touchManager: TouchManager;
 let homeScene: HomeScene | null = null;
 let roomScene: RoomScene | null = null;
+let characterSelectScene: CharacterSelectScene | null = null;
 let currentScene: Scene | null = null;
 
 /**
@@ -130,8 +132,9 @@ function handleStateChange(state: GameState, data?: StateData): void {
     break;
 
   case GameState.CHARACTER_SELECT:
-    // TODO: 实现角色选择场景
-    drawPlaceholder('角色选择');
+    // 角色选择场景
+    characterSelectScene = new CharacterSelectScene(ctx, touchManager, windowWidth, windowHeight, data);
+    currentScene = characterSelectScene;
     break;
 
   case GameState.PLAYING:
