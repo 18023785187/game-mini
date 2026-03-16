@@ -24,7 +24,8 @@ export interface GameConfig {
 export class GameStateManager {
   private currentState: GameState = GameState.HOME;
   private previousState: GameState | null = null;
-  private listeners: ((state: GameState) => void)[] = [];
+  private listeners: ((state: GameState, data?: any) => void)[] = [];
+  private currentData: any = null;
 
   /**
    * 获取当前状态
@@ -34,13 +35,21 @@ export class GameStateManager {
   }
 
   /**
+   * 获取当前状态数据
+   */
+  getData(): any {
+    return this.currentData;
+  }
+
+  /**
    * 设置状态
    */
-  setState(state: GameState): void {
-    if (this.currentState !== state) {
+  setState(state: GameState, data?: any): void {
+    if (this.currentState !== state || data !== undefined) {
       this.previousState = this.currentState;
       this.currentState = state;
-      this.notifyListeners();
+      this.currentData = data || null;
+      this.notifyListeners(data);
     }
   }
 
@@ -56,15 +65,15 @@ export class GameStateManager {
   /**
    * 添加状态变化监听器
    */
-  addListener(listener: (state: GameState) => void): void {
+  addListener(listener: (state: GameState, data?: any) => void): void {
     this.listeners.push(listener);
   }
 
   /**
    * 通知所有监听器
    */
-  private notifyListeners(): void {
-    this.listeners.forEach(listener => listener(this.currentState));
+  private notifyListeners(data?: any): void {
+    this.listeners.forEach(listener => listener(this.currentState, data));
   }
 }
 

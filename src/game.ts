@@ -29,7 +29,6 @@ let touchManager: TouchManager;
 let homeScene: HomeScene | null = null;
 let roomScene: RoomScene | null = null;
 let currentScene: any = null;
-let isInitialized = false;
 
 /**
  * 初始化游戏
@@ -52,7 +51,6 @@ function init(): void {
     handleLaunchOptions(options, false);
   });
 
-  isInitialized = true;
   console.log('游戏初始化完成');
 }
 
@@ -61,9 +59,22 @@ function init(): void {
  */
 function handleLaunchOptions(options: any, isLaunch: boolean): void {
   console.log('启动参数:', JSON.stringify(options));
+  console.log('query:', options?.query);
+  console.log('scene:', options?.scene);
 
   // 兼容不同的参数格式
-  const roomId = options?.query?.roomId || options?.roomId;
+  let roomId = null;
+
+  // 优先从 query 对象中获取
+  if (options?.query?.roomId) {
+    roomId = options.query.roomId;
+    console.log(`从 query.roomId 获取: ${roomId}`);
+  }
+  // 兼容直接在 options 上的 roomId
+  else if (options?.roomId) {
+    roomId = options.roomId;
+    console.log(`从 options.roomId 获取: ${roomId}`);
+  }
 
   if (roomId) {
     // 有 roomId，直接进入房间
@@ -89,31 +100,31 @@ function handleStateChange(state: GameState, data?: any): void {
 
   // 创建新场景（TouchManager 会自动管理按钮）
   switch (state) {
-    case GameState.HOME:
-      homeScene = new HomeScene(ctx, touchManager, windowWidth, windowHeight);
-      currentScene = homeScene;
-      break;
+  case GameState.HOME:
+    homeScene = new HomeScene(ctx, touchManager, windowWidth, windowHeight);
+    currentScene = homeScene;
+    break;
 
-    case GameState.ROOM:
-      // data 可以是 roomId，用于加入已有房间
-      roomScene = new RoomScene(ctx, touchManager, windowWidth, windowHeight, data?.roomId);
-      currentScene = roomScene;
-      break;
+  case GameState.ROOM:
+    // data 可以是 roomId，用于加入已有房间
+    roomScene = new RoomScene(ctx, touchManager, windowWidth, windowHeight, data?.roomId);
+    currentScene = roomScene;
+    break;
 
-    case GameState.CHARACTER_SELECT:
-      // TODO: 实现角色选择场景
-      drawPlaceholder('角色选择');
-      break;
+  case GameState.CHARACTER_SELECT:
+    // TODO: 实现角色选择场景
+    drawPlaceholder('角色选择');
+    break;
 
-    case GameState.PLAYING:
-      // TODO: 实现游戏场景
-      drawPlaceholder('游戏进行中');
-      break;
+  case GameState.PLAYING:
+    // TODO: 实现游戏场景
+    drawPlaceholder('游戏进行中');
+    break;
 
-    case GameState.RESULT:
-      // TODO: 实现结算场景
-      drawPlaceholder('游戏结算');
-      break;
+  case GameState.RESULT:
+    // TODO: 实现结算场景
+    drawPlaceholder('游戏结算');
+    break;
   }
 }
 

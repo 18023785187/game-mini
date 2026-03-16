@@ -58,10 +58,32 @@ export class RoomService {
     this.initCloudBase();
   }
 
+  private initPromise: Promise<void> | null = null;
+
   /**
    * 初始化 CloudBase
    */
   private async initCloudBase(): Promise<void> {
+    // 如果已经初始化完成，直接返回
+    if (this.collection) {
+      return;
+    }
+
+    // 如果正在初始化，等待初始化完成
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    // 开始初始化
+    this.initPromise = this._doInitCloudBase();
+    await this.initPromise;
+    this.initPromise = null;
+  }
+
+  /**
+   * 执行 CloudBase 初始化
+   */
+  private async _doInitCloudBase(): Promise<void> {
     try {
       // 初始化云开发
       if (!wx.cloud) {
@@ -79,6 +101,8 @@ export class RoomService {
       console.log('CloudBase 初始化成功');
     } catch (error) {
       console.error('CloudBase 初始化失败:', error);
+      this.initPromise = null;
+      throw error;
     }
   }
 
@@ -90,6 +114,16 @@ export class RoomService {
   }
 
   /**
+   * 生成唯一玩家ID
+   * 使用时间戳+随机数确保唯一性
+   */
+  private generatePlayerId(): string {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 8);
+    return `${timestamp}${random}`.toUpperCase();
+  }
+
+  /**
    * 获取当前玩家信息
    */
   private async getCurrentPlayer(): Promise<Player> {
@@ -97,9 +131,11 @@ export class RoomService {
       wx.getUserInfo({
         success: (res) => {
           const userInfo = res.userInfo;
+          // 使用玩家ID后4位作为昵称后缀，确保唯一性
+          const uniqueName = `${userInfo.nickName}#${this.currentPlayerId.slice(-4)}`;
           resolve({
             id: this.currentPlayerId,
-            nickname: userInfo.nickName,
+            nickname: uniqueName,
             avatarUrl: userInfo.avatarUrl,
             status: PlayerStatus.NOT_READY,
             isHost: true,
@@ -123,12 +159,18 @@ export class RoomService {
    * 创建房间
    */
   async createRoom(): Promise<Room> {
+    console.log('createRoom 被调用');
+
     if (!this.collection) {
+      console.log('collection 未初始化，等待初始化...');
       await this.initCloudBase();
+      console.log('初始化完成');
     }
 
-    this.currentPlayerId = wx.getStorageSync('playerId') || this.generateRoomId();
+    // 生成新的玩家ID（不使用缓存）
+    this.currentPlayerId = this.generatePlayerId();
     wx.setStorageSync('playerId', this.currentPlayerId);
+    console.log(`当前玩家ID: ${this.currentPlayerId}`);
 
     const player = await this.getCurrentPlayer();
     const roomId = this.generateRoomId();
@@ -141,6 +183,7 @@ export class RoomService {
     };
 
     try {
+      console.log(`正在创建房间: ${roomId}`);
       await this.collection.add({
         data: {
           _id: roomId,
@@ -167,32 +210,40 @@ export class RoomService {
     console.log(`joinRoom 被调用, roomId: ${roomId}`);
 
     if (!this.collection) {
+      console.log('collection 未初始化，等待初始化...');
       await this.initCloudBase();
+      console.log('初始化完成');
     }
-
-    this.currentPlayerId = wx.getStorageSync('playerId') || this.generateRoomId();
-    wx.setStorageSync('playerId', this.currentPlayerId);
 
     try {
       // 查询房间
       console.log(`正在查询房间: ${roomId}`);
       const res = await this.collection.doc(roomId).get();
-      console.log('查询结果:', res);
+      console.log('查询结果:', JSON.stringify(res));
 
       if (!res.data) {
+        console.error('房间不存在');
         throw new Error('房间不存在');
       }
 
       const room = res.data as Room;
+      console.log(`房间信息: ${JSON.stringify(room)}`);
 
       if (room.players.length >= 2) {
+        console.error('房间已满');
         throw new Error('房间已满');
       }
+
+      // 生成新的玩家ID（不使用缓存，避免与房主ID冲突）
+      this.currentPlayerId = this.generatePlayerId();
+      wx.setStorageSync('playerId', this.currentPlayerId);
+      console.log(`当前玩家ID: ${this.currentPlayerId}`);
 
       // 添加玩家到房间
       const player = await this.getCurrentPlayer();
       player.isHost = false;
       room.players.push(player);
+      console.log(`添加玩家到房间: ${JSON.stringify(player)}`);
 
       await this.collection.doc(roomId).update({
         data: {
