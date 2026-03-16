@@ -3,6 +3,7 @@
 import { GameState, gameState, gameConfig } from './core/GameState';
 import { TouchManager } from './ui/Button';
 import { HomeScene } from './scenes/HomeScene';
+import { RoomScene } from './scenes/RoomScene';
 
 /**
  * 游戏主入口
@@ -26,7 +27,9 @@ ctx.scale(pixelRatio, pixelRatio);
 let lastTime = 0;
 let touchManager: TouchManager;
 let homeScene: HomeScene | null = null;
+let roomScene: RoomScene | null = null;
 let currentScene: any = null;
+let isInitialized = false;
 
 /**
  * 初始化游戏
@@ -37,28 +40,64 @@ function init(): void {
   // 初始化触摸管理器
   touchManager = new TouchManager();
 
-  // 初始化首页场景
-  homeScene = new HomeScene(ctx, touchManager, windowWidth, windowHeight);
-  currentScene = homeScene;
-
   // 监听状态变化
   gameState.addListener(handleStateChange);
 
+  // 检查启动参数，处理通过分享链接进入的情况
+  const launchOptions = wx.getLaunchOptionsSync();
+  handleLaunchOptions(launchOptions, true);
+
+  // 监听小游戏切前台事件（处理从分享链接进入）
+  wx.onShow((options) => {
+    handleLaunchOptions(options, false);
+  });
+
+  isInitialized = true;
   console.log('游戏初始化完成');
+}
+
+/**
+ * 处理启动参数
+ */
+function handleLaunchOptions(options: any, isLaunch: boolean): void {
+  console.log('启动参数:', JSON.stringify(options));
+
+  // 兼容不同的参数格式
+  const roomId = options?.query?.roomId || options?.roomId;
+
+  if (roomId) {
+    // 有 roomId，直接进入房间
+    console.log(`通过分享链接进入房间: ${roomId}`);
+    gameState.setState(GameState.ROOM, { roomId });
+  } else if (isLaunch || !currentScene) {
+    // 首次启动或没有当前场景时，进入首页
+    homeScene = new HomeScene(ctx, touchManager, windowWidth, windowHeight);
+    currentScene = homeScene;
+  }
 }
 
 /**
  * 处理游戏状态变化
  */
-function handleStateChange(state: GameState): void {
+function handleStateChange(state: GameState, data?: any): void {
   console.log(`游戏状态变化: ${state}`);
 
+  // 销毁当前场景（清理非按钮资源，如事件监听器）
+  if (currentScene && currentScene.destroy) {
+    currentScene.destroy();
+  }
+
+  // 创建新场景（TouchManager 会自动管理按钮）
   switch (state) {
     case GameState.HOME:
-      if (!homeScene) {
-        homeScene = new HomeScene(ctx, touchManager, windowWidth, windowHeight);
-      }
+      homeScene = new HomeScene(ctx, touchManager, windowWidth, windowHeight);
       currentScene = homeScene;
+      break;
+
+    case GameState.ROOM:
+      // data 可以是 roomId，用于加入已有房间
+      roomScene = new RoomScene(ctx, touchManager, windowWidth, windowHeight, data?.roomId);
+      currentScene = roomScene;
       break;
 
     case GameState.CHARACTER_SELECT:

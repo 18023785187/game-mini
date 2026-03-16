@@ -3,6 +3,7 @@
  */
 export enum GameState {
   HOME = 'home',           // 首页
+  ROOM = 'room',           // 房间
   CHARACTER_SELECT = 'character_select', // 角色选择
   PLAYING = 'playing',     // 游戏中
   PAUSED = 'paused',       // 暂停

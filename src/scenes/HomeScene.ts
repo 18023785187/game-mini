@@ -7,6 +7,7 @@ import { Button, TouchManager } from '../ui/Button';
 export class HomeScene {
   private ctx: CanvasRenderingContext2D;
   private touchManager: TouchManager;
+  private sceneId: symbol;
   private singlePlayerButton: Button;
   private multiPlayerButton: Button;
   private animationTime: number = 0;
@@ -18,6 +19,10 @@ export class HomeScene {
     this.touchManager = touchManager;
     this.width = width;
     this.height = height;
+
+    // 创建并激活场景
+    this.sceneId = this.touchManager.createScene();
+    this.touchManager.switchScene(this.sceneId);
 
     // 创建按钮
     const centerX = width / 2;
@@ -61,7 +66,7 @@ export class HomeScene {
    */
   private handleMultiPlayer(): void {
     console.log('双人模式');
-    // TODO: 实现双人模式
+    gameState.setState(GameState.ROOM);
   }
 
   /**
@@ -157,6 +162,6 @@ export class HomeScene {
    * 销毁场景
    */
   destroy(): void {
-    this.touchManager.clearButtons();
+    this.touchManager.destroyScene(this.sceneId);
   }
 }
