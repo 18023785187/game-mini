@@ -5,26 +5,28 @@ import { Button, TouchManager } from '../ui/Button';
  * 首页场景
  */
 export class HomeScene {
-  private canvas: any;
   private ctx: CanvasRenderingContext2D;
   private touchManager: TouchManager;
   private startButton: Button;
   private settingsButton: Button;
   private animationTime: number = 0;
+  private width: number;
+  private height: number;
 
-  constructor(canvas: any, ctx: CanvasRenderingContext2D, touchManager: TouchManager) {
-    this.canvas = canvas;
+  constructor(ctx: CanvasRenderingContext2D, touchManager: TouchManager, width: number, height: number) {
     this.ctx = ctx;
     this.touchManager = touchManager;
+    this.width = width;
+    this.height = height;
 
     // 创建按钮
-    const centerX = canvas.width / 2;
+    const centerX = width / 2;
     const buttonWidth = 200;
     const buttonHeight = 60;
 
     this.startButton = new Button({
       x: centerX - buttonWidth / 2,
-      y: canvas.height / 2 + 50,
+      y: height / 2 + 50,
       width: buttonWidth,
       height: buttonHeight,
       text: '开始游戏',
@@ -33,7 +35,7 @@ export class HomeScene {
 
     this.settingsButton = new Button({
       x: centerX - buttonWidth / 2,
-      y: canvas.height / 2 + 130,
+      y: height / 2 + 130,
       width: buttonWidth,
       height: buttonHeight,
       text: '游戏设置',
@@ -74,7 +76,7 @@ export class HomeScene {
    */
   render(): void {
     const ctx = this.ctx;
-    const { width, height } = this.canvas;
+    const { width, height } = this;
 
     // 绘制渐变背景
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
@@ -106,7 +108,7 @@ export class HomeScene {
    */
   private drawDecorations(): void {
     const ctx = this.ctx;
-    const { width, height } = this.canvas;
+    const { width, height } = this;
 
     // 绘制动态星星
     ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
@@ -133,7 +135,7 @@ export class HomeScene {
    */
   private drawTitle(): void {
     const ctx = this.ctx;
-    const { width } = this.canvas;
+    const { width } = this;
 
     // 标题阴影
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';

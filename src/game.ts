@@ -38,7 +38,7 @@ function init(): void {
   touchManager = new TouchManager();
 
   // 初始化首页场景
-  homeScene = new HomeScene(canvas, ctx, touchManager);
+  homeScene = new HomeScene(ctx, touchManager, windowWidth, windowHeight);
   currentScene = homeScene;
 
   // 监听状态变化
@@ -56,7 +56,7 @@ function handleStateChange(state: GameState): void {
   switch (state) {
     case GameState.HOME:
       if (!homeScene) {
-        homeScene = new HomeScene(canvas, ctx, touchManager);
+        homeScene = new HomeScene(ctx, touchManager, windowWidth, windowHeight);
       }
       currentScene = homeScene;
       break;
