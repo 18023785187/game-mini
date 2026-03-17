@@ -72,14 +72,18 @@ export class Button {
   draw(ctx: CanvasRenderingContext2D): void {
     const { x, y, width, height, text, backgroundColor, textColor, fontSize, borderRadius } = this.config;
 
+    // 根据背景色计算按下状态和边框颜色
+    const pressedColor = this.darkenColor(backgroundColor, 0.1);
+    const borderColor = this.isPressed ? this.darkenColor(backgroundColor, 0.15) : this.lightenColor(backgroundColor, 0.15);
+
     // 绘制按钮背景
-    ctx.fillStyle = this.isPressed ? '#3a7bc8' : backgroundColor;
+    ctx.fillStyle = this.isPressed ? pressedColor : backgroundColor;
     ctx.beginPath();
     this.drawRoundRect(ctx, x, y, width, height, borderRadius);
     ctx.fill();
 
     // 绘制按钮边框
-    ctx.strokeStyle = this.isPressed ? '#2a6ab8' : '#5aa0e9';
+    ctx.strokeStyle = borderColor;
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -89,6 +93,28 @@ export class Button {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, x + width / 2, y + height / 2);
+  }
+
+  /**
+   * 使颜色变亮
+   */
+  private lightenColor(color: string, amount: number): string {
+    const hex = color.replace('#', '');
+    const r = Math.min(255, parseInt(hex.substring(0, 2), 16) + Math.round(255 * amount));
+    const g = Math.min(255, parseInt(hex.substring(2, 4), 16) + Math.round(255 * amount));
+    const b = Math.min(255, parseInt(hex.substring(4, 6), 16) + Math.round(255 * amount));
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  }
+
+  /**
+   * 使颜色变暗
+   */
+  private darkenColor(color: string, amount: number): string {
+    const hex = color.replace('#', '');
+    const r = Math.max(0, parseInt(hex.substring(0, 2), 16) - Math.round(255 * amount));
+    const g = Math.max(0, parseInt(hex.substring(2, 4), 16) - Math.round(255 * amount));
+    const b = Math.max(0, parseInt(hex.substring(4, 6), 16) - Math.round(255 * amount));
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }
 
   /**
