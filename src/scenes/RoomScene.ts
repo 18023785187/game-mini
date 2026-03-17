@@ -46,6 +46,9 @@ export class RoomScene {
   private seat1Config: SeatConfig;
   private seat2Config: SeatConfig;
 
+  // 头像图片缓存
+  private avatarImages: Map<string, any> = new Map();
+
   constructor(
     ctx: CanvasRenderingContext2D,
     touchManager: TouchManager,
@@ -168,6 +171,15 @@ export class RoomScene {
         this.isHost = true;
         console.log(`成功创建房间: ${this.room.id}`);
       }
+
+      // 加载当前房间所有玩家的头像
+      if (this.room) {
+        this.room.players.forEach(player => {
+          if (player.avatarUrl) {
+            this.loadAvatar(player.id, player.avatarUrl);
+          }
+        });
+      }
     } catch (error) {
       console.error('初始化房间失败:', error);
       // 显示错误提示
@@ -186,11 +198,32 @@ export class RoomScene {
   private handleRoomChange(room: Room): void {
     this.room = room;
 
+    // 加载新玩家的头像
+    room.players.forEach(player => {
+      if (player.avatarUrl && !this.avatarImages.has(player.id)) {
+        this.loadAvatar(player.id, player.avatarUrl);
+      }
+    });
+
     // 检查是否双方都已准备
     if (roomService.isAllReady()) {
       console.log('双方已准备，进入角色选择');
       gameState.setState(GameState.CHARACTER_SELECT);
     }
+  }
+
+  /**
+   * 加载头像图片
+   */
+  private loadAvatar(playerId: string, avatarUrl: string): void {
+    const img = wx.createImage();
+    img.onload = () => {
+      this.avatarImages.set(playerId, img);
+    };
+    img.onerror = () => {
+      console.error(`加载头像失败: ${avatarUrl}`);
+    };
+    img.src = avatarUrl;
   }
 
   /**
@@ -465,12 +498,13 @@ export class RoomScene {
     // 头像大小根据席位高度动态调整
     const avatarSize = Math.min(70, contentHeight * 0.35);
     const avatarY = contentY + 10;
+    const avatarCenterY = avatarY + avatarSize / 2;
 
     // 绘制头像背景光晕
     const gradient = ctx.createRadialGradient(
-      centerX, avatarY + avatarSize / 2,
+      centerX, avatarCenterY,
       avatarSize / 4,
-      centerX, avatarY + avatarSize / 2,
+      centerX, avatarCenterY,
       avatarSize / 2 + 5
     );
     gradient.addColorStop(0, player.isHost ? 'rgba(255, 107, 107, 0.8)' : 'rgba(78, 205, 196, 0.8)');
@@ -478,18 +512,38 @@ export class RoomScene {
 
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(centerX, avatarY + avatarSize / 2, avatarSize / 2 + 8, 0, Math.PI * 2);
+    ctx.arc(centerX, avatarCenterY, avatarSize / 2 + 8, 0, Math.PI * 2);
     ctx.fill();
 
-    // 绘制头像占位
-    ctx.fillStyle = player.isHost ? '#ff6b6b' : '#4ecdc4';
+    // 绘制头像（使用微信头像或占位符）
+    ctx.save();
     ctx.beginPath();
-    ctx.arc(centerX, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc(centerX, avatarCenterY, avatarSize / 2, 0, Math.PI * 2);
+    ctx.clip();
+
+    const avatarImg = this.avatarImages.get(player.id);
+    if (avatarImg) {
+      // 绘制头像图片
+      ctx.drawImage(
+        avatarImg,
+        centerX - avatarSize / 2,
+        avatarCenterY - avatarSize / 2,
+        avatarSize,
+        avatarSize
+      );
+    } else {
+      // 绘制占位符
+      ctx.fillStyle = player.isHost ? '#ff6b6b' : '#4ecdc4';
+      ctx.fill();
+    }
+
+    ctx.restore();
 
     // 绘制头像边框
     ctx.strokeStyle = player.isHost ? '#ff8888' : '#6eeee4';
     ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(centerX, avatarCenterY, avatarSize / 2, 0, Math.PI * 2);
     ctx.stroke();
 
     // 绘制玩家名称
