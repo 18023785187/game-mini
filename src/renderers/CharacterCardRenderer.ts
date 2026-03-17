@@ -49,8 +49,8 @@ export class CharacterCardRenderer {
     this.drawCardBackground(ctx, config, x, y, cardWidth, cardHeight, isSelected);
 
     // ===== 角色预览 =====
-    const iconSize = Math.min(cardWidth, cardHeight) * 0.5;
-    this.characterRenderer.drawPreview(config, x, y - cardHeight * 0.05, iconSize);
+    const iconSize = Math.min(cardWidth, cardHeight) * 0.45; // 稍微缩小预览尺寸
+    this.characterRenderer.drawPreview(config, x, y - cardHeight * 0.1, iconSize); // 调整位置更高一点
 
     // ===== 角色名称 =====
     this.drawCharacterName(ctx, config, x, y, cardWidth, cardHeight);
@@ -159,10 +159,10 @@ export class CharacterCardRenderer {
     
     // 角色名称
     ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${Math.round(cardWidth * 0.08)}px Arial`;
+    ctx.font = `bold ${Math.round(cardWidth * 0.07)}px Arial`; // 稍微减小字体
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(config.name, x, y + cardHeight * 0.25);
+    ctx.fillText(config.name, x, y + cardHeight * 0.2); // 向上移动，避免遮挡
 
     ctx.restore();
   }
@@ -178,7 +178,7 @@ export class CharacterCardRenderer {
     cardWidth: number,
     cardHeight: number
   ): void {
-    const tagY = y + cardHeight * 0.34;
+    const tagY = y + cardHeight * 0.35; // 再往下挪一挪，与名称保持更大间距
     const tagWidth = cardWidth * 0.35;
     const tagHeight = cardHeight * 0.06;
 
