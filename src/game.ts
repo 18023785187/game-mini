@@ -5,6 +5,7 @@ import { TouchManager } from './ui/Button';
 import { HomeScene } from './scenes/HomeScene';
 import { RoomScene } from './scenes/RoomScene';
 import { CharacterSelectScene } from './scenes/CharacterSelectScene';
+import { BattleScene } from './scenes/BattleScene';
 
 /**
  * 场景接口
@@ -39,6 +40,7 @@ let touchManager: TouchManager;
 let homeScene: HomeScene | null = null;
 let roomScene: RoomScene | null = null;
 let characterSelectScene: CharacterSelectScene | null = null;
+let battleScene: BattleScene | null = null;
 let currentScene: Scene | null = null;
 
 /**
@@ -138,8 +140,9 @@ function handleStateChange(state: GameState, data?: StateData): void {
     break;
 
   case GameState.PLAYING:
-    // TODO: 实现游戏场景
-    drawPlaceholder('游戏进行中');
+    // 对战场景
+    battleScene = new BattleScene(ctx, touchManager, windowWidth, windowHeight, data);
+    currentScene = battleScene;
     break;
 
   case GameState.RESULT:

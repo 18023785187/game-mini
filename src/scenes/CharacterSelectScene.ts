@@ -6,16 +6,14 @@ import {
   CHARACTERS,
   getAllCharacterIds,
 } from '../types/Character';
-import { roomService } from '../services/RoomService';
-import { CharacterRenderer } from '../renderers/CharacterRenderer';
+import { CharacterCardRenderer } from '../renderers/CharacterCardRenderer';
 
 /**
  * 选择阶段
  */
 enum SelectPhase {
-  PLAYER_SELECT = 'player_select',     // 玩家选择自己的角色
-  AI_SELECT = 'ai_select',             // 单人模式：选择AI角色
-  WAITING = 'waiting',                 // 双人模式：等待对方选择
+  PLAYER_SELECT = 'player_select',     // 玩家选择角色
+  AI_SELECT = 'ai_select',             // AI选择对手
   READY = 'ready',                     // 选择完成
 }
 
@@ -36,16 +34,15 @@ export class CharacterSelectScene {
   private width: number;
   private height: number;
   private animationTime: number = 0;
-  private characterRenderer: CharacterRenderer;
+  private cardRenderer: CharacterCardRenderer;
 
   // 模式相关
-  private isMultiPlayer: boolean;
   private phase: SelectPhase = SelectPhase.PLAYER_SELECT;
 
   // 选择状态
   private selectedCharacter: CharacterId | null = null;
-  private _aiCharacter: CharacterId | null = null;  // 单人模式AI角色（对战场景使用）
-  private _opponentCharacter: CharacterId | null = null;  // 双人模式对方角色（对战场景使用）
+  private _playerCharacter: CharacterId | null = null;  // 玩家角色
+  private _aiCharacter: CharacterId | null = null;     // AI角色
 
   // UI元素
   private confirmButton: Button;
@@ -53,7 +50,6 @@ export class CharacterSelectScene {
 
   // 滚动相关
   private characterIds: CharacterId[] = [];
-  private currentIndex: number = 0;           // 当前居中的角色索引
   private scrollOffset: number = 0;           // 滚动偏移量
   private isDragging: boolean = false;        // 是否正在拖动
   private dragStartX: number = 0;             // 拖动起始X坐标
@@ -83,11 +79,8 @@ export class CharacterSelectScene {
     this.width = width;
     this.height = height;
 
-    // 初始化角色渲染器
-    this.characterRenderer = new CharacterRenderer(ctx);
-
-    // 判断模式：如果有房间信息则为双人模式
-    this.isMultiPlayer = !!roomService.getCurrentRoom();
+    // 初始化卡片渲染器
+    this.cardRenderer = new CharacterCardRenderer(ctx);
 
     // 创建并激活场景
     this.sceneId = this.touchManager.createScene();
@@ -123,19 +116,10 @@ export class CharacterSelectScene {
 
     // 注册按钮事件
     this.touchManager.addButton(this.confirmButton, this.handleConfirm.bind(this));
-    
-    // 单人模式才显示返回按钮
-    if (!this.isMultiPlayer) {
-      this.touchManager.addButton(this.backButton, this.handleBack.bind(this));
-    }
+    this.touchManager.addButton(this.backButton, this.handleBack.bind(this));
 
     // 设置触摸监听
     this.setupTouchHandlers();
-
-    // 双人模式下监听房间状态
-    if (this.isMultiPlayer) {
-      roomService.addListener(this.handleRoomChange.bind(this));
-    }
 
     // 默认选中第一个角色
     this.selectedCharacter = this.characterIds[0];
@@ -246,65 +230,48 @@ export class CharacterSelectScene {
   }
 
   /**
-   * 处理房间状态变化（双人模式）
-   */
-  private handleRoomChange(): void {
-    // TODO: 实现双人模式角色同步
-    // 需要在RoomService中添加角色选择字段
-  }
-
-  /**
    * 处理确认按钮
    */
-  private async handleConfirm(): Promise<void> {
+  private handleConfirm(): void {
     if (!this.selectedCharacter) {
       wx.showToast({ title: '请先选择角色', icon: 'none' });
       return;
     }
 
     if (this.phase === SelectPhase.PLAYER_SELECT) {
-      if (this.isMultiPlayer) {
-        // 双人模式：发送选择并等待对方
-        // TODO: 实现双人模式选择同步
-        console.log('双人模式：等待对方选择');
-        this.phase = SelectPhase.WAITING;
-      } else {
-        // 单人模式：进入AI选择阶段
-        this.phase = SelectPhase.AI_SELECT;
-        this.selectedCharacter = null;
-        this.currentIndex = 0;
-        this.scrollOffset = 0;
-        this.confirmButton.getConfig().text = '开始对战';
-      }
+      // 保存玩家角色，进入AI选择阶段
+      this._playerCharacter = this.selectedCharacter;
+      this.phase = SelectPhase.AI_SELECT;
+      // 重置选择
+      this.selectedCharacter = null;
+      this.scrollOffset = 0;
+      this.velocity = 0;
+      this.isAnimating = false;
+      wx.showToast({ title: '请选择对手角色', icon: 'none' });
     } else if (this.phase === SelectPhase.AI_SELECT) {
-      // 单人模式：AI角色已选择，开始对战
-      if (this.selectedCharacter) {
-        this._aiCharacter = this.selectedCharacter;
-        this.startBattle();
-      }
+      // 保存AI角色，进入演示场景
+      this._aiCharacter = this.selectedCharacter;
+      this.startDemo();
     }
   }
 
   /**
-   * 开始对战
+   * 开始演示
    */
-  private startBattle(): void {
-    console.log('开始对战');
-    // TODO: 进入对战场景
-    wx.showToast({ title: '对战功能开发中...', icon: 'none' });
+  private startDemo(): void {
+    console.log('开始演示', '玩家:', this._playerCharacter, '对手:', this._aiCharacter);
+    // 传递玩家角色和对手角色到演示场景
+    gameState.setState(GameState.PLAYING, {
+      playerCharacter: this._playerCharacter,
+      aiCharacter: this._aiCharacter,
+    });
   }
 
   /**
    * 处理返回按钮
    */
   private handleBack(): void {
-    if (this.isMultiPlayer) {
-      // 双人模式返回房间
-      gameState.setState(GameState.ROOM);
-    } else {
-      // 单人模式返回首页
-      gameState.setState(GameState.HOME);
-    }
+    gameState.setState(GameState.HOME);
   }
 
   /**
@@ -312,7 +279,7 @@ export class CharacterSelectScene {
    */
   update(deltaTime: number): void {
     this.animationTime += deltaTime;
-    this.characterRenderer.update(deltaTime);
+    this.cardRenderer.update(deltaTime);
 
     // 更新吸附动画
     if (this.isAnimating) {
@@ -331,7 +298,6 @@ export class CharacterSelectScene {
         if (mappedIndex < 0) {
           mappedIndex += this.characterIds.length;
         }
-        this.currentIndex = mappedIndex;
         this.selectedCharacter = this.characterIds[mappedIndex];
         console.log('动画完成，选中角色:', this.selectedCharacter);
       }
@@ -365,11 +331,11 @@ export class CharacterSelectScene {
     // 绘制指示点
     this.drawIndicators();
 
+    // 绘制已选角色信息
+    this.drawSelectedInfo();
+
     // 绘制按钮
-    // 单人模式才显示返回按钮
-    if (!this.isMultiPlayer) {
-      this.backButton.draw(ctx);
-    }
+    this.backButton.draw(ctx);
     this.confirmButton.draw(ctx);
   }
 
@@ -416,10 +382,7 @@ export class CharacterSelectScene {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    let title = '选择角色';
-    if (this.phase === SelectPhase.AI_SELECT) {
-      title = '选择AI对手';
-    }
+    const title = this.phase === SelectPhase.PLAYER_SELECT ? '选择你的角色' : '选择对手角色';
 
     ctx.fillText(title, width / 2, 55);
 
@@ -430,13 +393,8 @@ export class CharacterSelectScene {
     // 副标题
     ctx.fillStyle = '#aaaaaa';
     ctx.font = '18px Arial';
-    if (this.phase === SelectPhase.PLAYER_SELECT) {
-      ctx.fillText('滑动选择你的战斗角色', width / 2, 90);
-    } else if (this.phase === SelectPhase.AI_SELECT) {
-      ctx.fillText('滑动选择AI控制的角色', width / 2, 90);
-    } else if (this.phase === SelectPhase.WAITING) {
-      ctx.fillText('等待对方选择...', width / 2, 90);
-    }
+    const subtitle = this.phase === SelectPhase.PLAYER_SELECT ? '滑动选择你的角色' : '滑动选择对手角色';
+    ctx.fillText(subtitle, width / 2, 90);
   }
 
   /**
@@ -500,7 +458,7 @@ export class CharacterSelectScene {
   }
 
   /**
-   * 绘制单个角色卡片
+   * 绘制单个角色卡片 - 使用新的炫酷渲染器
    */
   private drawCharacterCard(
     character: CharacterConfig,
@@ -511,61 +469,15 @@ export class CharacterSelectScene {
     alpha: number,
     isSelected: boolean
   ): void {
-    const ctx = this.ctx;
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
-
-    // 卡片背景
-    const bgGradient = ctx.createLinearGradient(x - cardWidth/2, y - cardHeight/2, x - cardWidth/2, y + cardHeight/2);
-    bgGradient.addColorStop(0, 'rgba(30, 30, 50, 0.9)');
-    bgGradient.addColorStop(1, 'rgba(20, 20, 40, 0.9)');
-    ctx.fillStyle = bgGradient;
-    ctx.beginPath();
-    this.drawRoundRect(ctx, x - cardWidth/2, y - cardHeight/2, cardWidth, cardHeight, 12);
-    ctx.fill();
-
-    // 卡片边框
-    const borderColor = isSelected ? character.color : 'rgba(255, 255, 255, 0.3)';
-    const borderWidth = isSelected ? 3 : 1;
-    ctx.strokeStyle = borderColor;
-    ctx.lineWidth = borderWidth;
-    ctx.beginPath();
-    this.drawRoundRect(ctx, x - cardWidth/2, y - cardHeight/2, cardWidth, cardHeight, 12);
-    ctx.stroke();
-
-    // 选中发光效果
-    if (isSelected) {
-      ctx.shadowColor = character.color;
-      ctx.shadowBlur = 15;
-      ctx.beginPath();
-      this.drawRoundRect(ctx, x - cardWidth/2, y - cardHeight/2, cardWidth, cardHeight, 12);
-      ctx.stroke();
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
-    }
-
-    // 绘制角色图标
-    const iconSize = Math.min(cardWidth, cardHeight) * 0.45;
-    this.characterRenderer.drawPreview(character, x, y - cardHeight * 0.08, iconSize);
-
-    // 绘制角色名字
-    ctx.fillStyle = character.color;
-    ctx.font = `bold ${Math.round(cardWidth * 0.07)}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(character.name, x, y + cardHeight * 0.27);
-
-    // 绘制角色类型
-    ctx.fillStyle = '#aaaaaa';
-    ctx.font = `${Math.round(cardWidth * 0.055)}px Arial`;
-    ctx.fillText(
-      character.type === 'melee' ? '近战型' : '远程型',
+    this.cardRenderer.drawCard(
+      character,
       x,
-      y + cardHeight * 0.42
+      y,
+      cardWidth,
+      cardHeight,
+      isSelected,
+      alpha
     );
-
-    ctx.restore();
   }
 
   /**
@@ -609,26 +521,35 @@ export class CharacterSelectScene {
   }
 
   /**
-   * 绘制圆角矩形路径
+   * 绘制已选角色信息
    */
-  private drawRoundRect(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    radius: number
-  ): void {
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + width - radius, y);
-    ctx.arcTo(x + width, y, x + width, y + radius, radius);
-    ctx.lineTo(x + width, y + height - radius);
-    ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
-    ctx.lineTo(x + radius, y + height);
-    ctx.arcTo(x, y + height, x, y + height - radius, radius);
-    ctx.lineTo(x, y + radius);
-    ctx.arcTo(x, y, x + radius, y, radius);
-    ctx.closePath();
+  private drawSelectedInfo(): void {
+    const ctx = this.ctx;
+    const { width, height } = this;
+
+    if (this._playerCharacter) {
+      const playerConfig = CHARACTERS[this._playerCharacter];
+
+      // 绘制玩家角色信息
+      ctx.fillStyle = playerConfig.color;
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+
+      const playerText = `你的角色: ${playerConfig.name}`;
+      ctx.fillText(playerText, 25, height * 0.78 - 80);
+    }
+
+    if (this.phase === SelectPhase.AI_SELECT && this._playerCharacter) {
+      // 绘制对战信息
+      ctx.fillStyle = '#aaaaaa';
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const vsText = 'VS';
+      ctx.fillText(vsText, width / 2, height * 0.78 - 50);
+    }
   }
 
   /**
@@ -649,11 +570,6 @@ export class CharacterSelectScene {
     if (this.touchEndHandler) {
       wx.offTouchEnd(this.touchEndHandler);
       this.touchEndHandler = null;
-    }
-
-    // 双人模式下移除房间监听
-    if (this.isMultiPlayer) {
-      roomService.removeListener(this.handleRoomChange.bind(this));
     }
   }
 }
