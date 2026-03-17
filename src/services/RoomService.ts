@@ -125,35 +125,67 @@ export class RoomService {
 
   /**
    * 获取当前玩家信息
-   * 使用 wx.getUserProfile 获取用户授权信息
+   * 使用 wx.createUserInfoButton 创建授权按钮
    */
   private async getCurrentPlayer(): Promise<Player> {
     return new Promise((resolve) => {
-      wx.getUserProfile({
-        desc: '用于展示玩家头像和昵称',
-        success: (res) => {
-          const userInfo = res.userInfo;
-          // 使用玩家ID后4位作为昵称后缀，确保唯一性
-          const uniqueName = `${userInfo.nickName}#${this.currentPlayerId.slice(-4)}`;
-          resolve({
-            id: this.currentPlayerId,
-            nickname: uniqueName,
-            avatarUrl: userInfo.avatarUrl,
-            status: PlayerStatus.NOT_READY,
-            isHost: true,
-          });
-        },
-        fail: () => {
-          // 如果获取用户信息失败，使用默认信息
-          resolve({
-            id: this.currentPlayerId,
-            nickname: `玩家${this.currentPlayerId.slice(-4)}`,
-            avatarUrl: '',
-            status: PlayerStatus.NOT_READY,
-            isHost: true,
-          });
-        },
-      });
+      // 检查是否支持 createUserInfoButton
+      if (typeof wx.createUserInfoButton === 'function') {
+        // 创建一个全屏透明的授权按钮
+        const systemInfo = wx.getSystemInfoSync();
+        const button = wx.createUserInfoButton({
+          type: 'text',
+          text: '',
+          style: {
+            left: 0,
+            top: 0,
+            width: systemInfo.windowWidth,
+            height: systemInfo.windowHeight,
+            lineHeight: 0,
+            backgroundColor: 'transparent',
+            color: 'transparent',
+            textAlign: 'center',
+            fontSize: 0,
+            borderRadius: 0,
+          },
+          withCredentials: false,
+          lang: 'zh_CN',
+        });
+
+        button.onTap((res: any) => {
+          button.destroy(); // 销毁按钮
+          
+          if (res.userInfo) {
+            // 成功获取用户信息，使用原始昵称
+            const userInfo = res.userInfo;
+            resolve({
+              id: this.currentPlayerId,
+              nickname: userInfo.nickName,
+              avatarUrl: userInfo.avatarUrl,
+              status: PlayerStatus.NOT_READY,
+              isHost: true,
+            });
+          } else {
+            // 用户拒绝授权，使用默认昵称加后缀
+            resolve({
+              id: this.currentPlayerId,
+              nickname: `玩家${this.currentPlayerId.slice(-4)}`,
+              avatarUrl: '',
+              status: PlayerStatus.NOT_READY,
+              isHost: true,
+            });
+          }
+        });
+      } else {
+        // 不支持 createUserInfoButton，使用默认信息
+        resolve({
+          id: this.currentPlayerId,
+          nickname: `玩家${this.currentPlayerId.slice(-4)}`,
+          avatarUrl: '',
+          status: PlayerStatus.NOT_READY,
+          isHost: true,
+        });
+      }
     });
   }
 

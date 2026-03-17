@@ -86,19 +86,43 @@ interface TextMetrics {
  * 微信API扩展类型定义
  */
 declare namespace WechatMinigame {
-  interface GetUserProfileOption {
-    desc: string;
-    success?: (res: GetUserProfileSuccessCallbackResult) => void;
-    fail?: (res: GeneralCallbackResult) => void;
-    complete?: (res: GeneralCallbackResult) => void;
+  interface UserInfoButton {
+    onTap(callback: (res: UserInfoButtonTapResult) => void): void;
+    offTap(callback: (res: UserInfoButtonTapResult) => void): void;
+    show(): void;
+    hide(): void;
+    destroy(): void;
   }
 
-  interface GetUserProfileSuccessCallbackResult {
-    userInfo: UserInfo;
+  interface UserInfoButtonTapResult {
+    userInfo?: UserInfo;
     errMsg: string;
   }
 
+  interface CreateUserInfoButtonOption {
+    type: 'text' | 'image';
+    text?: string;
+    image?: string;
+    style: {
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+      lineHeight?: number;
+      backgroundColor?: string;
+      color?: string;
+      textAlign?: 'left' | 'center' | 'right';
+      fontSize?: number;
+      fontWeight?: 'normal' | 'bold';
+      borderRadius?: number;
+      borderColor?: string;
+      borderWidth?: number;
+    };
+    withCredentials?: boolean;
+    lang?: 'en' | 'zh_CN' | 'zh_TW';
+  }
+
   interface Wx {
-    getUserProfile(option: GetUserProfileOption): void;
+    createUserInfoButton(option: CreateUserInfoButtonOption): UserInfoButton;
   }
 }

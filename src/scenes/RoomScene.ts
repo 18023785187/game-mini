@@ -216,6 +216,8 @@ export class RoomScene {
    * 加载头像图片
    */
   private loadAvatar(playerId: string, avatarUrl: string): void {
+    if (!avatarUrl) return;
+    
     const img = wx.createImage();
     img.onload = () => {
       this.avatarImages.set(playerId, img);
