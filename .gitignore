@@ -10,3 +10,6 @@ config/secrets.js
 project.config.json
 src/config/secrets.ts
 cloudbaserc.json
+
+# Husky backup files
+.husky/*.bak
