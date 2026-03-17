@@ -81,3 +81,24 @@ interface TextMetrics {
   actualBoundingBoxAscent?: number;
   actualBoundingBoxDescent?: number;
 }
+
+/**
+ * 微信API扩展类型定义
+ */
+declare namespace WechatMinigame {
+  interface GetUserProfileOption {
+    desc: string;
+    success?: (res: GetUserProfileSuccessCallbackResult) => void;
+    fail?: (res: GeneralCallbackResult) => void;
+    complete?: (res: GeneralCallbackResult) => void;
+  }
+
+  interface GetUserProfileSuccessCallbackResult {
+    userInfo: UserInfo;
+    errMsg: string;
+  }
+
+  interface Wx {
+    getUserProfile(option: GetUserProfileOption): void;
+  }
+}

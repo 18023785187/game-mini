@@ -125,10 +125,12 @@ export class RoomService {
 
   /**
    * 获取当前玩家信息
+   * 使用 wx.getUserProfile 获取用户授权信息
    */
   private async getCurrentPlayer(): Promise<Player> {
     return new Promise((resolve) => {
-      wx.getUserInfo({
+      wx.getUserProfile({
+        desc: '用于展示玩家头像和昵称',
         success: (res) => {
           const userInfo = res.userInfo;
           // 使用玩家ID后4位作为昵称后缀，确保唯一性
