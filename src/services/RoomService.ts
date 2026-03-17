@@ -123,70 +123,107 @@ export class RoomService {
     return `${timestamp}${random}`.toUpperCase();
   }
 
+  // 授权按钮
+  private authButton: WechatMinigame.UserInfoButton | null = null;
+
   /**
    * 获取当前玩家信息
-   * 使用 wx.createUserInfoButton 创建授权按钮
+   * 先返回默认信息，同时创建授权按钮，授权成功后更新玩家信息
    */
   private async getCurrentPlayer(): Promise<Player> {
-    return new Promise((resolve) => {
-      // 检查是否支持 createUserInfoButton
-      if (typeof wx.createUserInfoButton === 'function') {
-        // 创建一个全屏透明的授权按钮
-        const systemInfo = wx.getSystemInfoSync();
-        const button = wx.createUserInfoButton({
-          type: 'text',
-          text: '',
-          style: {
-            left: 0,
-            top: 0,
-            width: systemInfo.windowWidth,
-            height: systemInfo.windowHeight,
-            lineHeight: 0,
-            backgroundColor: 'transparent',
-            color: 'transparent',
-            textAlign: 'center',
-            fontSize: 0,
-            borderRadius: 0,
-          },
-          withCredentials: false,
-          lang: 'zh_CN',
-        });
+    // 先返回默认玩家信息
+    const defaultPlayer: Player = {
+      id: this.currentPlayerId,
+      nickname: `玩家${this.currentPlayerId.slice(-4)}`,
+      avatarUrl: '',
+      status: PlayerStatus.NOT_READY,
+      isHost: true,
+    };
 
-        button.onTap((res: any) => {
-          button.destroy(); // 销毁按钮
-          
-          if (res.userInfo) {
-            // 成功获取用户信息，使用原始昵称
-            const userInfo = res.userInfo;
-            resolve({
-              id: this.currentPlayerId,
-              nickname: userInfo.nickName,
-              avatarUrl: userInfo.avatarUrl,
-              status: PlayerStatus.NOT_READY,
-              isHost: true,
-            });
-          } else {
-            // 用户拒绝授权，使用默认昵称加后缀
-            resolve({
-              id: this.currentPlayerId,
-              nickname: `玩家${this.currentPlayerId.slice(-4)}`,
-              avatarUrl: '',
-              status: PlayerStatus.NOT_READY,
-              isHost: true,
-            });
-          }
-        });
-      } else {
-        // 不支持 createUserInfoButton，使用默认信息
-        resolve({
-          id: this.currentPlayerId,
-          nickname: `玩家${this.currentPlayerId.slice(-4)}`,
-          avatarUrl: '',
-          status: PlayerStatus.NOT_READY,
-          isHost: true,
-        });
+    // 异步创建授权按钮
+    this.createAuthButton();
+
+    return defaultPlayer;
+  }
+
+  /**
+   * 创建授权按钮
+   */
+  private createAuthButton(): void {
+    // 检查是否支持 createUserInfoButton
+    if (typeof wx.createUserInfoButton !== 'function') {
+      return;
+    }
+
+    // 如果已经有授权按钮，先销毁
+    if (this.authButton) {
+      this.authButton.destroy();
+    }
+
+    // 创建一个全屏透明的授权按钮
+    const systemInfo = wx.getSystemInfoSync();
+    this.authButton = wx.createUserInfoButton({
+      type: 'text',
+      text: '',
+      style: {
+        left: 0,
+        top: 0,
+        width: systemInfo.windowWidth,
+        height: systemInfo.windowHeight,
+        lineHeight: 0,
+        backgroundColor: 'transparent',
+        color: 'transparent',
+        textAlign: 'center',
+        fontSize: 0,
+        borderRadius: 0,
+      },
+      withCredentials: false,
+      lang: 'zh_CN',
+    });
+
+    this.authButton.onTap((res: any) => {
+      // 授权完成，销毁按钮
+      if (this.authButton) {
+        this.authButton.destroy();
+        this.authButton = null;
+      }
+      
+      if (res.userInfo && this.currentRoom) {
+        // 成功获取用户信息，更新玩家信息
+        this.updatePlayerInfo(res.userInfo.nickName, res.userInfo.avatarUrl);
       }
     });
+  }
+
+  /**
+   * 更新玩家信息（昵称和头像）
+   */
+  private async updatePlayerInfo(nickname: string, avatarUrl: string): Promise<void> {
+    if (!this.currentRoom) return;
+
+    const playerIndex = this.currentRoom.players.findIndex(
+      (p) => p.id === this.currentPlayerId
+    );
+
+    if (playerIndex === -1) return;
+
+    // 更新本地玩家信息
+    this.currentRoom.players[playerIndex].nickname = nickname;
+    this.currentRoom.players[playerIndex].avatarUrl = avatarUrl;
+
+    // 更新数据库
+    try {
+      await this.collection!.doc(this.currentRoom.id).update({
+        data: {
+          players: this.currentRoom.players,
+        },
+      });
+
+      // 通知监听器
+      this.notifyListeners();
+    } catch (error) {
+      console.error('更新玩家信息失败:', error);
+    }
   }
 
   /**
