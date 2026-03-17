@@ -118,6 +118,13 @@ export class BattleMap {
   }
 
   /**
+   * 获取地面高度（像素，世界坐标）
+   */
+  getGroundHeight(): number {
+    return this.config.groundY * this.unitSize;
+  }
+
+  /**
    * 获取所有平台
    */
   getPlatforms(): Platform[] {
@@ -131,8 +138,23 @@ export class BattleMap {
     const mapWidth = this.getMapWidth();
     const targetX = playerX - this.screenWidth / 2;
 
-    // 限制摄像机不超出地图边界
-    this.cameraX = Math.max(0, Math.min(mapWidth - this.screenWidth, targetX));
+    // 限制摄像机不超出地图边界，考虑角色宽度
+    const minCameraX = 0;
+    const maxCameraX = mapWidth - this.screenWidth;
+    
+    // 平滑跟随，但确保角色不会超出屏幕
+    let cameraX = Math.max(minCameraX, Math.min(maxCameraX, targetX));
+    
+    // 额外检查：如果角色接近边界，调整摄像机位置
+    if (playerX < this.screenWidth / 2) {
+      // 角色在左半屏，摄像机保持在最左
+      cameraX = 0;
+    } else if (playerX > mapWidth - this.screenWidth / 2) {
+      // 角色在右半屏，摄像机保持在最右
+      cameraX = maxCameraX;
+    }
+    
+    this.cameraX = cameraX;
   }
 
   /**
@@ -144,6 +166,9 @@ export class BattleMap {
 
   /**
    * 世界坐标转屏幕坐标
+   * 世界坐标系：Y轴向上为正（角色在地面上时Y=地面高度）
+   * 屏幕坐标系：Y轴向下为正（屏幕顶部Y=0）
+   * 转换公式：screenY = screenHeight - worldY
    */
   worldToScreen(worldX: number, worldY: number): { x: number; y: number } {
     return {

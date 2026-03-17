@@ -39,8 +39,8 @@ export class Character {
   private _groundY: number = 0;      // 地面Y坐标
   private _velocityY: number = 0;     // 垂直速度
   private _isJumping: boolean = false; // 是否在跳跃中
-  private readonly JUMP_FORCE = -400;  // 跳跃力度
-  private readonly GRAVITY = 1200;    // 重力加速度
+  private readonly JUMP_FORCE = 400;   // 跳跃力度（正值，因为Y轴向上为正）
+  private readonly GRAVITY = -1200;    // 重力加速度（负值，向下拉）
   private readonly JUMP_HEIGHT_LIMIT = 180; // 跳跃高度限制(3个单位,60px/单位)
 
   // 状态
@@ -120,13 +120,13 @@ export class Character {
       this._velocityY += this.GRAVITY * dt;
 
       // 跳跃高度限制(3个单位 = 180px)
-      if (this._y < this._groundY - this.JUMP_HEIGHT_LIMIT) {
-        this._y = this._groundY - this.JUMP_HEIGHT_LIMIT;
+      if (this._y > this._groundY + this.JUMP_HEIGHT_LIMIT) {
+        this._y = this._groundY + this.JUMP_HEIGHT_LIMIT;
         this._velocityY = 0; // 达到最大高度后停止上升
       }
 
       // 落地检测
-      if (this._y >= this._groundY) {
+      if (this._y <= this._groundY) {
         this._y = this._groundY;
         this._isJumping = false;
         this._velocityY = 0;

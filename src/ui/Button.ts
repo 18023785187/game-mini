@@ -20,6 +20,16 @@ export interface TouchEvent {
 }
 
 /**
+ * 可触摸UI组件接口
+ */
+export interface TouchableComponent {
+  containsPoint(point: TouchPoint): boolean;
+  setPressed(pressed: boolean): void;
+  draw(ctx: CanvasRenderingContext2D): void;
+  isPressed?: boolean; // 可选属性，用于检查按钮是否处于按下状态
+}
+
+/**
  * 按钮配置（完整配置）
  */
 interface ButtonConfigFull {
@@ -52,7 +62,7 @@ export interface ButtonConfig {
 /**
  * UI按钮组件
  */
-export class Button {
+export class Button implements TouchableComponent {
   private config: ButtonConfigFull;
   private isPressed: boolean = false;
 
@@ -163,7 +173,10 @@ export class Button {
  */
 export class TouchManager {
   private currentSceneId: symbol | null = null;
-  private sceneButtons: Map<symbol, { buttons: Button[]; callbacks: Map<Button, () => void> }> = new Map();
+  private sceneComponents: Map<symbol, { 
+    components: TouchableComponent[]; 
+    callbacks: Map<TouchableComponent, () => void> 
+  }> = new Map();
 
   constructor() {
     this.init();
@@ -182,7 +195,7 @@ export class TouchManager {
    */
   createScene(): symbol {
     const sceneId = Symbol('scene');
-    this.sceneButtons.set(sceneId, { buttons: [], callbacks: new Map() });
+    this.sceneComponents.set(sceneId, { components: [], callbacks: new Map() });
     return sceneId;
   }
 
@@ -191,11 +204,11 @@ export class TouchManager {
    */
   switchScene(sceneId: symbol): void {
     // 销毁其他场景
-    for (const [id, data] of this.sceneButtons) {
+    for (const [id, data] of this.sceneComponents) {
       if (id !== sceneId) {
-        // 重置按钮状态
-        data.buttons.forEach(button => button.setPressed(false));
-        this.sceneButtons.delete(id);
+        // 重置组件状态
+        data.components.forEach(component => component.setPressed(false));
+        this.sceneComponents.delete(id);
       }
     }
     this.currentSceneId = sceneId;
@@ -205,10 +218,10 @@ export class TouchManager {
    * 销毁指定场景
    */
   destroyScene(sceneId: symbol): void {
-    const data = this.sceneButtons.get(sceneId);
+    const data = this.sceneComponents.get(sceneId);
     if (data) {
-      data.buttons.forEach(button => button.setPressed(false));
-      this.sceneButtons.delete(sceneId);
+      data.components.forEach(component => component.setPressed(false));
+      this.sceneComponents.delete(sceneId);
     }
     if (this.currentSceneId === sceneId) {
       this.currentSceneId = null;
@@ -216,28 +229,35 @@ export class TouchManager {
   }
 
   /**
-   * 添加按钮和回调（添加到当前场景）
+   * 添加可触摸组件和回调（添加到当前场景）
    */
-  addButton(button: Button, callback: () => void): void {
+  addComponent(component: TouchableComponent, callback: () => void): void {
     if (!this.currentSceneId) {
       console.warn('TouchManager: 没有激活的场景，请先调用 switchScene');
       return;
     }
-    const data = this.sceneButtons.get(this.currentSceneId);
+    const data = this.sceneComponents.get(this.currentSceneId);
     if (data) {
-      data.buttons.push(button);
-      data.callbacks.set(button, callback);
+      data.components.push(component);
+      data.callbacks.set(component, callback);
     }
   }
 
   /**
-   * 清除当前场景的所有按钮
+   * 添加按钮和回调（兼容旧API）
    */
-  clearButtons(): void {
+  addButton(button: Button, callback: () => void): void {
+    this.addComponent(button, callback);
+  }
+
+  /**
+   * 清除当前场景的所有组件
+   */
+  clearComponents(): void {
     if (!this.currentSceneId) return;
-    const data = this.sceneButtons.get(this.currentSceneId);
+    const data = this.sceneComponents.get(this.currentSceneId);
     if (data) {
-      data.buttons = [];
+      data.components = [];
       data.callbacks.clear();
     }
   }
@@ -248,15 +268,15 @@ export class TouchManager {
   private handleTouchStart(e: WxTouchEvent): void {
     if (!this.currentSceneId) return;
 
-    const data = this.sceneButtons.get(this.currentSceneId);
+    const data = this.sceneComponents.get(this.currentSceneId);
     if (!data) return;
 
     const touch = e.touches[0];
     const point: TouchPoint = { x: touch.clientX, y: touch.clientY };
 
-    for (const button of data.buttons) {
-      if (button.containsPoint(point)) {
-        button.setPressed(true);
+    for (const component of data.components) {
+      if (component.containsPoint(point)) {
+        component.setPressed(true);
         break;
       }
     }
@@ -268,19 +288,25 @@ export class TouchManager {
   private handleTouchEnd(e: WxTouchEvent): void {
     if (!this.currentSceneId) return;
 
-    const data = this.sceneButtons.get(this.currentSceneId);
+    const data = this.sceneComponents.get(this.currentSceneId);
     if (!data) return;
 
     const touch = e.changedTouches[0];
     const point: TouchPoint = { x: touch.clientX, y: touch.clientY };
 
-    for (const button of data.buttons) {
-      if (button.containsPoint(point) && button['isPressed']) {
-        const callback = data.callbacks.get(button);
-        callback?.();
+    for (const component of data.components) {
+      if (component.containsPoint(point)) {
+        // 检查组件是否有isPressed属性（为了兼容性）
+        const isPressed = component.isPressed !== undefined ? 
+          component.isPressed : true;
+        
+        if (isPressed) {
+          const callback = data.callbacks.get(component);
+          callback?.();
+        }
         break;
       }
-      button.setPressed(false);
+      component.setPressed(false);
     }
   }
 }
