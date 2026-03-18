@@ -17,13 +17,16 @@ export interface AttackButtonConfig {
 }
 
 /**
- * 攻击按钮状态
- */
+* 攻击按钮状态
+*/
 export interface AttackButtonState {
   isPressed: boolean;
   isAutoAttacking: boolean; // 是否在自动攻击
   attackInterval: number;   // 攻击间隔（毫秒）
   lastAttackTime: number;   // 上次攻击时间
+  isOnCooldown: boolean;   // 是否在冷却中
+  cooldownStartTime: number;// 冷却开始时间
+  cooldownDuration: number; // 冷却持续时间（毫秒）
 }
 
 /**
@@ -45,6 +48,9 @@ export class AttackButton implements TouchableComponent {
       isAutoAttacking: false,
       attackInterval: 500, // 默认攻击间隔500ms
       lastAttackTime: 0,
+      isOnCooldown: false,
+      cooldownStartTime: 0,
+      cooldownDuration: 500,
     };
   }
 
@@ -140,6 +146,36 @@ export class AttackButton implements TouchableComponent {
       ctx.stroke();
     }
 
+    // 绘制冷却遮罩（扇形动画）
+    if (this.state.isOnCooldown) {
+      const currentTime = Date.now();
+      const elapsed = currentTime - this.state.cooldownStartTime;
+      const progress = Math.min(1, elapsed / this.state.cooldownDuration);
+
+      if (progress < 1) {
+        // 绘制半透明黑色遮罩扇形
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        // 从-90度（12点钟方向）开始顺时针绘制
+        const startAngle = -Math.PI / 2;
+        const endAngle = startAngle + progress * Math.PI * 2;
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fill();
+
+        // 绘制冷却进度弧线
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius - 3, endAngle - 0.02, endAngle + 0.02);
+        ctx.stroke();
+      } else {
+        // 冷却结束
+        this.state.isOnCooldown = false;
+      }
+    }
+
     ctx.restore();
   }
 
@@ -162,7 +198,8 @@ export class AttackButton implements TouchableComponent {
    */
   setPressed(pressed: boolean): void {
     this.state.isPressed = pressed;
-    this.state.isAutoAttacking = pressed; // 按下时开始自动攻击
+    // 不设置isAutoAttacking，因为我们只在按钮按下时触发一次攻击
+    // 如果需要自动攻击功能，可以后续添加
   }
 
   /**
@@ -196,6 +233,8 @@ export class AttackButton implements TouchableComponent {
     this.state.isPressed = false;
     this.state.isAutoAttacking = false;
     this.state.lastAttackTime = 0;
+    this.state.isOnCooldown = false;
+    this.state.cooldownStartTime = 0;
   }
 
   /**
@@ -203,6 +242,34 @@ export class AttackButton implements TouchableComponent {
    */
   isAttacking(): boolean {
     return this.state.isAutoAttacking;
+  }
+
+  /**
+   * 启动冷却
+   */
+  startCooldown(duration: number): void {
+    this.state.isOnCooldown = true;
+    this.state.cooldownStartTime = Date.now();
+    this.state.cooldownDuration = duration;
+  }
+
+  /**
+   * 是否在冷却中
+   */
+  isOnCooldown(): boolean {
+    if (!this.state.isOnCooldown) {
+      return false;
+    }
+
+    const currentTime = Date.now();
+    const elapsed = currentTime - this.state.cooldownStartTime;
+
+    if (elapsed >= this.state.cooldownDuration) {
+      this.state.isOnCooldown = false;
+      return false;
+    }
+
+    return true;
   }
 
   /**

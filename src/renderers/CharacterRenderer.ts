@@ -4,13 +4,16 @@
  */
 
 import { CharacterConfig } from '../types/Character';
+import { CharacterDirection } from '../entities/Character';
 
 /**
- * 角色渲染器
- */
+* 角色渲染器
+*/
 export class CharacterRenderer {
   private ctx: CanvasRenderingContext2D;
   private animationTime: number = 0;
+  private isEnchanted: boolean = false; // 附魔状态
+  private chargeProgress: number = 0; // 蓄力进度 0-1
 
   constructor(ctx: CanvasRenderingContext2D) {
     this.ctx = ctx;
@@ -21,6 +24,34 @@ export class CharacterRenderer {
    */
   update(deltaTime: number): void {
     this.animationTime += deltaTime;
+  }
+
+  /**
+   * 设置蓄力进度
+   */
+  setChargeProgress(progress: number): void {
+    this.chargeProgress = progress;
+  }
+
+  /**
+   * 获取蓄力进度
+   */
+  getChargeProgress(): number {
+    return this.chargeProgress;
+  }
+
+  /**
+   * 设置附魔状态
+   */
+  setEnchanted(enchanted: boolean): void {
+    this.isEnchanted = enchanted;
+  }
+
+  /**
+   * 获取附魔状态
+   */
+  getEnchanted(): boolean {
+    return this.isEnchanted;
   }
 
   /**
@@ -41,19 +72,62 @@ export class CharacterRenderer {
   }
 
   /**
+   * 战斗场景：攻击状态
+   * @param config 角色配置
+   * @param size 角色尺寸
+   * @param direction 角色方向
+   * @param progress 攻击进度（0-1）
+   * @param isChargedAttack 是否为蓄力攻击
+   */
+  drawBattleAttacking(config: CharacterConfig, size: number, direction: CharacterDirection, progress: number, isChargedAttack: boolean = false): void {
+    // 攻击状态：挥砍动画
+    // 根据攻击进度插值动画
+    const attackPhase = Math.min(progress * 3, 1); // 加快攻击动画
+    // 蓄力攻击挥砍幅度更大
+    const swingMultiplier = isChargedAttack ? 3.5 : 2.5;
+    const swingAngle = Math.sin(attackPhase * Math.PI) * swingMultiplier; // 挥砍角度
+
+    // 绘制基础角色，传递攻击进度和挥砍角度
+    this.drawBattleCharacterBase(config, size, 0, false, progress, swingAngle, direction, isChargedAttack, isChargedAttack ? 1 : 0);
+  }
+
+  /**
+   * 战斗场景：蓄力状态
+   * @param config 角色配置
+   * @param size 角色尺寸
+   * @param direction 角色方向
+   * @param chargeProgress 蓄力进度（0-1）
+   */
+  drawBattleCharging(config: CharacterConfig, size: number, direction: CharacterDirection, chargeProgress: number): void {
+    // 蓄力状态：角色微微颤抖，剑发光增强
+    const shake = Math.sin(Date.now() / 50) * 2; // 震动效果
+    this.drawBattleCharacterBase(config, size, shake, false, 0, -0.5, direction, true, chargeProgress);
+  }
+
+  /**
    * 战斗场景：绘制角色基础形象
    */
-  private drawBattleCharacterBase(config: CharacterConfig, size: number, offset: number, isMoving: boolean): void {
+  private drawBattleCharacterBase(
+    config: CharacterConfig,
+    size: number,
+    offset: number,
+    isMoving: boolean,
+    attackProgress: number = 0,
+    swingAngle: number = 0,
+    direction: CharacterDirection = CharacterDirection.RIGHT,
+    isChargedAttack: boolean = false,
+    chargeProgress: number = 0
+  ): void {
     const cx = size * 0.5;
     const cy = size * 0.5 + offset;
     const walkCycle = isMoving ? this.animationTime * 0.01 : 0;
 
     if (config.id === 'berserker') {
-      this.drawBattleBerserker(config, cx, cy, size, walkCycle, isMoving);
+      this.drawBattleBerserker(config, cx, cy, size, walkCycle, isMoving, attackProgress, swingAngle, direction, this.isEnchanted, isChargedAttack, chargeProgress);
     } else if (config.id === 'gunner') {
-      this.drawBattleGunner(config, cx, cy, size, walkCycle, isMoving);
+      this.drawBattleGunner(config, cx, cy, size, walkCycle, isMoving, attackProgress, swingAngle, direction);
     } else if (config.id === 'tank') {
-      this.drawBattleTank(config, cx, cy, size, walkCycle, isMoving);
+      this.drawBattleTank(config, cx, cy, size, walkCycle, isMoving, attackProgress, swingAngle, direction);
     }
   }
 
@@ -66,48 +140,302 @@ export class CharacterRenderer {
     cy: number,
     size: number,
     walkCycle: number,
-    isMoving: boolean
+    isMoving: boolean,
+    attackProgress: number = 0,
+    swingAngle: number = 0,
+    _direction: CharacterDirection = CharacterDirection.RIGHT,
+    isEnchanted: boolean = false,
+    isChargedAttack: boolean = false,
+    chargeProgress: number = 0
   ): void {
     const ctx = this.ctx;
     const scale = size / 100;
 
-    // 腿部动画：走路时腿部摆动
-    const leftLegAngle = isMoving ? Math.sin(walkCycle) * 0.3 : 0;
-    const rightLegAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.3 : 0;
-    const leftLegOffset = isMoving ? Math.sin(walkCycle) * 5 : 0;
-    const rightLegOffset = isMoving ? Math.sin(walkCycle + Math.PI) * 5 : 0;
+    // 腿部动画 - 更自然的行走节奏
+    const rightLegAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.25 : 0;
+    const leftLegAngle = isMoving ? Math.sin(walkCycle) * 0.25 : 0;
+    const leftLegOffset = isMoving ? Math.sin(walkCycle) * 4 : 0;
+    const rightLegOffset = isMoving ? Math.sin(walkCycle + Math.PI) * 4 : 0;
 
+    // 后腿(左侧腿,因为向右走,左腿在后面)
     ctx.save();
-    ctx.translate(cx - 8 * scale, cy + 30 * scale);
+    ctx.translate(cx - 5 * scale, cy + 28 * scale);
     ctx.rotate(leftLegAngle);
+    // 腿部渐变
+    const backLegGradient = ctx.createLinearGradient(-5 * scale, 0, 5 * scale, 0);
+    backLegGradient.addColorStop(0, '#2a1a1a');
+    backLegGradient.addColorStop(0.5, '#3a2a2a');
+    backLegGradient.addColorStop(1, '#1a0a0a');
+    ctx.fillStyle = backLegGradient;
+    // 大腿 - 更粗更自然
+    ctx.beginPath();
+    ctx.ellipse(0, leftLegOffset - 5 * scale, 6 * scale, 13 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 小腿
+    ctx.fillRect(-4 * scale, leftLegOffset + 6 * scale, 8 * scale, 17 * scale);
+    // 脚 - 侧视轮廓
+    ctx.fillStyle = '#4a3a2a';
+    ctx.beginPath();
+    ctx.moveTo(-3 * scale, leftLegOffset + 23 * scale);
+    ctx.lineTo(5 * scale, leftLegOffset + 23 * scale);
+    ctx.lineTo(5 * scale, leftLegOffset + 28 * scale);
+    ctx.lineTo(0 * scale, leftLegOffset + 31 * scale);
+    ctx.lineTo(-3 * scale, leftLegOffset + 23 * scale);
+    ctx.fill();
+    // 脚底
     ctx.fillStyle = '#2a1a1a';
-    ctx.fillRect(-4 * scale, leftLegOffset, 8 * scale, 25 * scale);
+    ctx.fillRect(-3 * scale, leftLegOffset + 28 * scale, 8 * scale, 2 * scale);
     ctx.restore();
 
+    // 前腿(右侧腿,因为向右走,右腿在前面)
     ctx.save();
-    ctx.translate(cx + 8 * scale, cy + 30 * scale);
+    ctx.translate(cx + 5 * scale, cy + 28 * scale);
     ctx.rotate(rightLegAngle);
-    ctx.fillStyle = '#2a1a1a';
-    ctx.fillRect(-4 * scale, rightLegOffset, 8 * scale, 25 * scale);
+    // 腿部渐变 - 前腿更亮
+    const frontLegGradient = ctx.createLinearGradient(-5 * scale, 0, 5 * scale, 0);
+    frontLegGradient.addColorStop(0, '#3a2a2a');
+    frontLegGradient.addColorStop(0.5, '#4a3a3a');
+    frontLegGradient.addColorStop(1, '#2a1a1a');
+    ctx.fillStyle = frontLegGradient;
+    // 大腿 - 更粗更自然
+    ctx.beginPath();
+    ctx.ellipse(0, rightLegOffset - 5 * scale, 6 * scale, 13 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 小腿
+    ctx.fillRect(-4 * scale, rightLegOffset + 6 * scale, 8 * scale, 17 * scale);
+    // 脚 - 侧视轮廓
+    ctx.fillStyle = '#5a4a3a';
+    ctx.beginPath();
+    ctx.moveTo(-3 * scale, rightLegOffset + 23 * scale);
+    ctx.lineTo(5 * scale, rightLegOffset + 23 * scale);
+    ctx.lineTo(5 * scale, rightLegOffset + 28 * scale);
+    ctx.lineTo(0 * scale, rightLegOffset + 31 * scale);
+    ctx.lineTo(-3 * scale, rightLegOffset + 23 * scale);
+    ctx.fill();
+    // 脚底高光
+    ctx.fillStyle = '#3a2a2a';
+    ctx.fillRect(-3 * scale, rightLegOffset + 28 * scale, 8 * scale, 2 * scale);
     ctx.restore();
 
-    // 身体
-    ctx.fillStyle = config.color;
+    // 手臂动画：走路时手臂摆动
+    const leftArmAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.2 : 0;
+    const rightArmAngle = isMoving ? Math.sin(walkCycle) * 0.2 : 0;
+
+    // 右臂 - 持剑（剑在身体后面）
+    ctx.save();
+    // 右臂基础位置
+    ctx.translate(cx + 22 * scale, cy - 2 * scale);
+    // 走路时手臂摆动，攻击时加上挥砍角度
+    const armRotation = rightArmAngle - 0.3 + (attackProgress > 0 ? swingAngle : 0);
+    ctx.rotate(armRotation);
+
+    // 在手的位置绘制巨剑（手握住剑柄）
+    // 巨剑 - 90单位长度，华丽设计
+    const swordAngle = isMoving ? Math.sin(walkCycle) * 0.1 : 0;
+    ctx.save();
+    ctx.rotate(-0.2 + swordAngle); // 剑的基础角度和走路摆动
+
+    // 粗铁剑柄 - 缠绕皮革质感
+    ctx.fillStyle = '#3d2817';
+    ctx.fillRect(-5 * scale, -7 * scale, 10 * scale, 14 * scale);
+
+    // 剑柄纹理
+    ctx.strokeStyle = '#2a1a0f';
+    ctx.lineWidth = 1 * scale;
+    for (let i = 0; i < 4; i++) {
+      const y = -5 * scale + i * 3.5 * scale;
+      ctx.beginPath();
+      ctx.moveTo(-5 * scale, y);
+      ctx.lineTo(5 * scale, y);
+      ctx.stroke();
+    }
+
+    // 护手 - 更厚重的十字护手
+    ctx.fillStyle = '#5a4a3a'; // 铁质感
+    ctx.fillRect(-16 * scale, -14 * scale, 32 * scale, 8 * scale);
+    // 护手阴影
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(-16 * scale, -8 * scale, 32 * scale, 2 * scale);
+
+    // 护手高光
+    ctx.fillStyle = '#7a6a5a';
+    ctx.fillRect(-16 * scale, -14 * scale, 32 * scale, 2 * scale);
+
+    // 护手侧翼装饰
+    ctx.fillStyle = '#4a4a4a';
+    ctx.fillRect(-18 * scale, -12 * scale, 4 * scale, 4 * scale);
+    ctx.fillRect(14 * scale, -12 * scale, 4 * scale, 4 * scale);
+
+    // 粗铁剑刃 - 更宽更厚重，剑长180像素（3单位射程）
+    const bladeLength = 180 * scale; // 剑长对应射程3单位
+    const bladeWidth = 10 * scale; // 粗剑
+    const bladeGradient = ctx.createLinearGradient(-bladeWidth, -bladeLength, bladeWidth, -14 * scale);
+    bladeGradient.addColorStop(0, '#5a5a5a'); // 剑尖深色
+    bladeGradient.addColorStop(0.2, '#7a7a7a');
+    bladeGradient.addColorStop(0.4, '#9a9a9a');
+    bladeGradient.addColorStop(0.6, '#8a8a8a');
+    bladeGradient.addColorStop(0.8, '#6a6a6a');
+    bladeGradient.addColorStop(1, '#4a4a4a'); // 剑根深色
+
+    ctx.fillStyle = bladeGradient;
+    ctx.beginPath();
+    ctx.moveTo(-bladeWidth, -14 * scale); // 剑根左侧
+    ctx.lineTo(-bladeWidth * 0.7, -bladeLength + 10 * scale); // 中段收窄
+    ctx.lineTo(0, -bladeLength); // 剑尖
+    ctx.lineTo(bladeWidth * 0.7, -bladeLength + 10 * scale); // 中段收窄
+    ctx.lineTo(bladeWidth, -14 * scale); // 剑根右侧
+    ctx.closePath();
+    ctx.fill();
+
+    // 剑刃边缘 - 打磨效果
+    ctx.strokeStyle = '#aaa';
+    ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.moveTo(-bladeWidth, -14 * scale);
+    ctx.lineTo(-bladeWidth * 0.7, -bladeLength + 10 * scale);
+    ctx.lineTo(0, -bladeLength);
+    ctx.lineTo(bladeWidth * 0.7, -bladeLength + 10 * scale);
+    ctx.lineTo(bladeWidth, -14 * scale);
+    ctx.stroke();
+
+    // 剑刃中线 - 血槽
+    ctx.fillStyle = '#3a3a3a';
+    ctx.beginPath();
+    ctx.moveTo(-3 * scale, -19 * scale);
+    ctx.lineTo(0, -109 * scale);
+    ctx.lineTo(3 * scale, -19 * scale);
+    ctx.closePath();
+    ctx.fill();
+
+    // 剑刃纹理 - 锻造痕迹
+    ctx.strokeStyle = '#6a6a6a';
+    ctx.lineWidth = 0.5 * scale;
+    for (let i = 0; i < 6; i++) {
+      const y = -24 * scale - i * 12 * scale;
+      if (y < -104) break;
+      ctx.beginPath();
+      ctx.moveTo(-bladeWidth * 0.8 + i * 0.5 * scale, y);
+      ctx.lineTo(bladeWidth * 0.8 - i * 0.5 * scale, y + 2);
+      ctx.stroke();
+    }
+
+    // 剑刃锋芒（攻击时发光）
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 2 * scale;
+
+    // 蓄力状态 - 剑刃根据蓄力程度发光
+    if (isChargedAttack && chargeProgress > 0) {
+      // 蓄力时剑刃逐渐变亮变红
+      const chargeIntensity = chargeProgress; // 0-1
+      const chargePulse = Math.sin(Date.now() / 100) * 0.2 + 0.8; // 蓄力时快速脉冲
+      const redComponent = Math.floor(100 + chargeIntensity * 155); // 100-255
+      const blurAmount = 15 + chargeIntensity * 25; // 15-40px模糊
+
+      ctx.shadowColor = `rgb(${redComponent}, ${Math.floor(100 - chargeIntensity * 50)}, ${Math.floor(50 - chargeIntensity * 30)})`;
+      ctx.shadowBlur = blurAmount * chargePulse;
+      ctx.strokeStyle = `rgb(${Math.min(255, redComponent + 50)}, ${Math.floor(150 - chargeIntensity * 50)}, ${Math.floor(100 - chargeIntensity * 30)})`;
+    } else if (isEnchanted) {
+      // 附魔状态 - 持续发光
+      const enchantPulse = Math.sin(Date.now() / 200) * 0.3 + 0.7; // 0.4-1.0之间波动
+      ctx.shadowColor = '#ff0000'; // 红色附魔光芒
+      ctx.shadowBlur = 30 * enchantPulse;
+      ctx.strokeStyle = '#ff3333';
+    } else if (attackProgress > 0.3 && attackProgress < 0.8) {
+      // 攻击时发光效果 - 铁质光芒
+      const glowIntensity = Math.sin((attackProgress - 0.3) / 0.5 * Math.PI);
+      ctx.shadowColor = '#ff6644'; // 橙红色光芒
+      ctx.shadowBlur = 20 * glowIntensity;
+      ctx.strokeStyle = '#fff';
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(-bladeWidth * 0.5, -16 * scale);
+    ctx.lineTo(0, -bladeLength + 5 * scale);
+    ctx.lineTo(bladeWidth * 0.5, -16 * scale);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.restore(); // 结束剑的变换
+
+    // 在剑柄位置绘制右手（握住剑）
+    ctx.fillStyle = '#ddaa88';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 7 * scale, 14 * scale, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 手指握住剑柄的细节
+    ctx.fillStyle = '#cc9977';
+    ctx.beginPath();
+    ctx.ellipse(-3 * scale, -2 * scale, 3 * scale, 4 * scale, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(3 * scale, -2 * scale, 3 * scale, 4 * scale, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore(); // 结束右手（和剑）的变换
+
+    // 身体 - 更有质感的渐变
+    const bodyGradient = ctx.createRadialGradient(cx - 5 * scale, cy - 10 * scale, 0, cx, cy, 22 * scale);
+    bodyGradient.addColorStop(0, '#c43c3c'); // 高光
+    bodyGradient.addColorStop(0.5, config.color); // 主色
+    bodyGradient.addColorStop(1, '#6b1515'); // 阴影
+    ctx.fillStyle = bodyGradient;
     ctx.beginPath();
     ctx.ellipse(cx, cy, 20 * scale, 28 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 护肩
-    ctx.fillStyle = '#888899';
+    // 身体高光
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.beginPath();
-    ctx.ellipse(cx - 20 * scale, cy - 10 * scale, 8 * scale, 12 * scale, -0.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(cx + 20 * scale, cy - 8 * scale, 8 * scale, 12 * scale, 0.4, 0, Math.PI * 2);
+    ctx.ellipse(cx - 5 * scale, cy - 8 * scale, 8 * scale, 12 * scale, -0.3, 0, Math.PI * 2);
     ctx.fill();
 
-    // 胸甲 - 更精美的设计
-    ctx.fillStyle = '#8B0000';
+    // 护肩 - 铁质厚重感
+    const shoulderGradient = ctx.createLinearGradient(0, 0, 0, 24 * scale);
+    shoulderGradient.addColorStop(0, '#9a9a9a');
+    shoulderGradient.addColorStop(0.5, '#6a6a6a');
+    shoulderGradient.addColorStop(1, '#4a4a4a');
+
+    // 左护肩
+    ctx.save();
+    ctx.translate(cx - 20 * scale, cy - 10 * scale);
+    ctx.rotate(-0.4);
+    ctx.fillStyle = shoulderGradient;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10 * scale, 14 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 护肩高光
+    ctx.strokeStyle = '#aaa';
+    ctx.lineWidth = 2 * scale;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10 * scale, 14 * scale, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // 右护肩
+    ctx.save();
+    ctx.translate(cx + 20 * scale, cy - 8 * scale);
+    ctx.rotate(0.4);
+    ctx.fillStyle = shoulderGradient;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10 * scale, 14 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 护肩高光
+    ctx.strokeStyle = '#aaa';
+    ctx.lineWidth = 2 * scale;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10 * scale, 14 * scale, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // 胸甲 - 更厚重更有质感
+    const chestGradient = ctx.createLinearGradient(cx - 12 * scale, 0, cx + 12 * scale, 0);
+    chestGradient.addColorStop(0, '#5a0a0a');
+    chestGradient.addColorStop(0.3, '#8B0000');
+    chestGradient.addColorStop(0.7, '#8B0000');
+    chestGradient.addColorStop(1, '#5a0a0a');
+
+    ctx.fillStyle = chestGradient;
     ctx.beginPath();
     ctx.moveTo(cx - 12 * scale, cy - 22 * scale);
     ctx.lineTo(cx + 12 * scale, cy - 22 * scale);
@@ -117,163 +445,184 @@ export class CharacterRenderer {
     ctx.closePath();
     ctx.fill();
 
-    // 胸甲装饰 - 银色纹路
-    ctx.strokeStyle = '#C0C0C0';
+    // 胸甲边框 - 铁质边缘
+    ctx.strokeStyle = '#3a3a3a';
+    ctx.lineWidth = 3 * scale;
+    ctx.stroke();
+
+    // 胸甲高光边框
+    ctx.strokeStyle = '#aa4a4a';
     ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.moveTo(cx - 10 * scale, cy - 18 * scale);
+    ctx.lineTo(cx + 10 * scale, cy - 18 * scale);
+    ctx.stroke();
+
+    // 胸甲装饰 - 铁质纹路
+    ctx.strokeStyle = '#6a6a6a';
+    ctx.lineWidth = 2 * scale;
     ctx.beginPath();
     ctx.moveTo(cx, cy - 22 * scale);
     ctx.lineTo(cx, cy + 22 * scale);
-    ctx.moveTo(cx - 8 * scale, cy - 15 * scale);
-    ctx.lineTo(cx - 5 * scale, cy + 10 * scale);
-    ctx.moveTo(cx + 8 * scale, cy - 15 * scale);
-    ctx.lineTo(cx + 5 * scale, cy + 10 * scale);
     ctx.stroke();
 
-    // 手臂动画：走路时手臂摆动
-    const leftArmAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.2 : 0;
-    const rightArmAngle = isMoving ? Math.sin(walkCycle) * 0.2 : 0;
+    // 胸甲铆钉
+    const rivetPositions = [
+      { x: cx, y: cy - 18 * scale },
+      { x: cx, y: cy - 6 * scale },
+      { x: cx, y: cy + 6 * scale },
+      { x: cx, y: cy + 18 * scale },
+    ];
+    ctx.fillStyle = '#8a8a8a';
+    rivetPositions.forEach(pos => {
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, 2 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      // 铆钉高光
+      ctx.fillStyle = '#aaa';
+      ctx.beginPath();
+      ctx.arc(pos.x - 0.5 * scale, pos.y - 0.5 * scale, 1 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#8a8a8a';
+    });
 
-    // 左臂 - 持剑
+    // 后臂(左手,在左护肩下方)
     ctx.save();
-    ctx.translate(cx - 24 * scale, cy - 8 * scale);
-    ctx.rotate(leftArmAngle - 0.3);
+    ctx.translate(cx - 22 * scale, cy + 8 * scale);
+    ctx.rotate(leftArmAngle + 0.1);
+
+    // 手臂 - 从肩膀到手掌
+    const armGradient = ctx.createLinearGradient(-5 * scale, 0, 5 * scale, 0);
+    armGradient.addColorStop(0, '#cc9977');
+    armGradient.addColorStop(0.5, '#ddaa88');
+    armGradient.addColorStop(1, '#cc9977');
+    ctx.fillStyle = armGradient;
+    ctx.beginPath();
+    ctx.ellipse(0, -3 * scale, 5 * scale, 12 * scale, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 手掌
     ctx.fillStyle = '#ddaa88';
     ctx.beginPath();
-    ctx.ellipse(0, 0, 7 * scale, 14 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 8 * scale, 5 * scale, 6 * scale, -0.2, 0, Math.PI * 2);
     ctx.fill();
-    
-    // 剑鞘
-    ctx.fillStyle = '#4a4a4a';
-    ctx.fillRect(-3 * scale, -35 * scale, 6 * scale, 25 * scale);
+
+    // 大拇指
+    ctx.beginPath();
+    ctx.ellipse(-5 * scale, 5 * scale, 2 * scale, 4 * scale, -0.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 食指
+    ctx.beginPath();
+    ctx.ellipse(3 * scale, 14 * scale, 2 * scale, 5 * scale, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 中指
+    ctx.beginPath();
+    ctx.ellipse(5 * scale, 13 * scale, 2 * scale, 5.5 * scale, -0.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 无名指
+    ctx.beginPath();
+    ctx.ellipse(6 * scale, 11 * scale, 1.8 * scale, 5 * scale, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 小指
+    ctx.beginPath();
+    ctx.ellipse(6 * scale, 9 * scale, 1.5 * scale, 4 * scale, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 手掌渐变阴影
+    const handGradient = ctx.createLinearGradient(-6 * scale, 0, 6 * scale, 0);
+    handGradient.addColorStop(0, 'rgba(0, 0, 0, 0.1)');
+    handGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = handGradient;
+    ctx.beginPath();
+    ctx.ellipse(0, 8 * scale, 5 * scale, 6 * scale, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
 
-    // 右臂
-    ctx.save();
-    ctx.translate(cx + 22 * scale, cy - 2 * scale);
-    ctx.rotate(rightArmAngle);
-    ctx.fillStyle = '#ddaa88';
+    // 头部 - 侧脸效果,椭圆更扁
+    const headGradient = ctx.createRadialGradient(cx + 3 * scale, cy - 38 * scale, 0, cx, cy - 35 * scale, 12 * scale);
+    headGradient.addColorStop(0, '#eec090');
+    headGradient.addColorStop(1, '#cc8866');
+    ctx.fillStyle = headGradient;
     ctx.beginPath();
-    ctx.ellipse(0, 0, 7 * scale, 14 * scale, 0.2, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy - 35 * scale, 12 * scale, 14 * scale, 0, 0, Math.PI * 2); // 更窄的头部
     ctx.fill();
-    ctx.restore();
 
-    // 巨剑 - 90单位长度，华丽设计
-    const swordAngle = isMoving ? Math.sin(walkCycle) * 0.1 : 0;
-    ctx.save();
-    ctx.translate(cx - 35 * scale, cy - 45 * scale);
-    ctx.rotate(-0.2 + swordAngle);
+    // 头盔 - 侧脸效果,只画前面部分
+    const helmetGradient = ctx.createLinearGradient(cx - 10 * scale, 0, cx + 10 * scale, 0);
+    helmetGradient.addColorStop(0, '#6a0a0a');
+    helmetGradient.addColorStop(0.5, config.color);
+    helmetGradient.addColorStop(1, '#4a0a0a');
 
-    // 剑柄
-    ctx.fillStyle = '#4a3020';
-    ctx.fillRect(-3 * scale, 15 * scale, 6 * scale, 12 * scale);
-
-    // 护手
-    ctx.fillStyle = '#D4AF37';
-    ctx.fillRect(-12 * scale, 10 * scale, 24 * scale, 6 * scale);
-    ctx.strokeStyle = '#FFD700';
-    ctx.lineWidth = 1 * scale;
-    ctx.strokeRect(-12 * scale, 10 * scale, 24 * scale, 6 * scale);
-
-    // 剑刃主体
-    const bladeGradient = ctx.createLinearGradient(-4 * scale, -90 * scale, 4 * scale, 10 * scale);
-    bladeGradient.addColorStop(0, '#E8E8E8');
-    bladeGradient.addColorStop(0.3, '#FFFFFF');
-    bladeGradient.addColorStop(0.7, '#D0D0D0');
-    bladeGradient.addColorStop(1, '#A0A0A0');
-    ctx.fillStyle = bladeGradient;
+    ctx.fillStyle = helmetGradient;
     ctx.beginPath();
-    ctx.moveTo(-4 * scale, 10 * scale);
-    ctx.lineTo(0, -90 * scale);
-    ctx.lineTo(4 * scale, 10 * scale);
+    ctx.arc(cx, cy - 38 * scale, 14 * scale, Math.PI, 0);
+    ctx.fill();
+
+    // 头盔高光(在右侧受光面)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.beginPath();
+    ctx.arc(cx + 3 * scale, cy - 42 * scale, 5 * scale, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 头盔顶冠 - 侧脸只显示右边
+    ctx.save();
+    ctx.translate(cx, cy - 52 * scale);
+    ctx.fillStyle = '#6a6a6a';
+    ctx.beginPath();
+    ctx.moveTo(-2 * scale, 8 * scale);
+    ctx.lineTo(0, -12 * scale);
+    ctx.lineTo(5 * scale, 8 * scale);
     ctx.closePath();
     ctx.fill();
 
-    // 剑刃锋芒
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 1 * scale;
+    // 顶冠高光
+    ctx.fillStyle = '#9a9a9a';
     ctx.beginPath();
-    ctx.moveTo(0, 10 * scale);
-    ctx.lineTo(0, -90 * scale);
-    ctx.stroke();
-
-    // 剑刃血槽
-    ctx.strokeStyle = '#B8B8B8';
-    ctx.lineWidth = 1.5 * scale;
-    ctx.beginPath();
-    ctx.moveTo(-1.5 * scale, 5 * scale);
-    ctx.lineTo(0, -85 * scale);
-    ctx.lineTo(1.5 * scale, 5 * scale);
-    ctx.stroke();
-
-    // 剑刃发光效果
-    ctx.shadowColor = '#C0C0FF';
-    ctx.shadowBlur = 10;
-    ctx.strokeStyle = 'rgba(200, 200, 255, 0.5)';
-    ctx.lineWidth = 2 * scale;
-    ctx.beginPath();
-    ctx.moveTo(-4 * scale, 10 * scale);
-    ctx.lineTo(0, -90 * scale);
-    ctx.lineTo(4 * scale, 10 * scale);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    ctx.restore();
-
-    // 头部
-    ctx.fillStyle = '#ddaa88';
-    ctx.beginPath();
-    ctx.arc(cx, cy - 35 * scale, 14 * scale, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 头盔 - 更华丽的设计
-    ctx.fillStyle = config.color;
-    ctx.beginPath();
-    ctx.arc(cx, cy - 38 * scale, 16 * scale, Math.PI, 0);
-    ctx.fill();
-
-    // 头盔侧翼
-    ctx.beginPath();
-    ctx.moveTo(cx - 16 * scale, cy - 38 * scale);
-    ctx.lineTo(cx - 20 * scale, cy - 45 * scale);
-    ctx.lineTo(cx - 18 * scale, cy - 32 * scale);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(cx + 16 * scale, cy - 38 * scale);
-    ctx.lineTo(cx + 20 * scale, cy - 45 * scale);
-    ctx.lineTo(cx + 18 * scale, cy - 32 * scale);
-    ctx.fill();
-
-    // 头盔顶冠
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - 54 * scale);
-    ctx.lineTo(cx - 4 * scale, cy - 44 * scale);
-    ctx.lineTo(cx + 4 * scale, cy - 44 * scale);
+    ctx.moveTo(0, 8 * scale);
+    ctx.lineTo(0, -12 * scale);
+    ctx.lineTo(2 * scale, 8 * scale);
     ctx.closePath();
     ctx.fill();
+    ctx.restore();
 
-    // 护面甲
-    ctx.fillStyle = '#666666';
-    ctx.fillRect(cx - 8 * scale, cy - 42 * scale, 16 * scale, 8 * scale);
-    ctx.strokeStyle = '#444444';
-    ctx.lineWidth = 1 * scale;
-    ctx.strokeRect(cx - 8 * scale, cy - 42 * scale, 16 * scale, 8 * scale);
-
-    // 眼睛
+    // 眼睛 - 侧脸只显示右眼
     ctx.fillStyle = '#FFD700';
     ctx.beginPath();
-    ctx.arc(cx - 5 * scale, cy - 35 * scale, 2.5 * scale, 0, Math.PI * 2);
-    ctx.arc(cx + 5 * scale, cy - 35 * scale, 2.5 * scale, 0, Math.PI * 2);
+    ctx.ellipse(cx + 4 * scale, cy - 35 * scale, 2.5 * scale, 3 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // 眼睛发光效果
     ctx.shadowColor = '#FFD700';
-    ctx.shadowBlur = 5;
-    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#FFF8DC';
     ctx.beginPath();
-    ctx.arc(cx - 5 * scale, cy - 35 * scale, 1 * scale, 0, Math.PI * 2);
-    ctx.arc(cx + 5 * scale, cy - 35 * scale, 1 * scale, 0, Math.PI * 2);
+    ctx.arc(cx + 4 * scale, cy - 35 * scale, 1 * scale, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
+
+    // 眉毛 - 侧脸只显示右眉
+    ctx.strokeStyle = '#4a4a4a';
+    ctx.lineWidth = 2 * scale;
+    ctx.beginPath();
+    ctx.moveTo(cx + 2 * scale, cy - 40 * scale);
+    ctx.lineTo(cx + 6 * scale, cy - 38 * scale);
+    ctx.stroke();
+
+    // 胡须 - 侧脸,更小
+    ctx.fillStyle = '#5a4a3a';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 28 * scale);
+    ctx.lineTo(cx + 5 * scale, cy - 25 * scale);
+    ctx.lineTo(cx + 8 * scale, cy - 28 * scale);
+    ctx.lineTo(cx + 6 * scale, cy - 22 * scale);
+    ctx.lineTo(cx + 3 * scale, cy - 20 * scale);
+    ctx.closePath();
+    ctx.fill();
   }
 
   /**
@@ -285,7 +634,11 @@ export class CharacterRenderer {
     cy: number,
     size: number,
     walkCycle: number,
-    isMoving: boolean
+    isMoving: boolean,
+    _attackProgress: number = 0,
+    _swingAngle: number = 0,
+    _direction: CharacterDirection = CharacterDirection.RIGHT,
+    _isEnchanted: boolean = false
   ): void {
     const ctx = this.ctx;
     const scale = size / 100;
@@ -451,7 +804,11 @@ export class CharacterRenderer {
     cy: number,
     size: number,
     walkCycle: number,
-    isMoving: boolean
+    isMoving: boolean,
+    _attackProgress: number = 0,
+    _swingAngle: number = 0,
+    _direction: CharacterDirection = CharacterDirection.RIGHT,
+    _isEnchanted: boolean = false
   ): void {
     const ctx = this.ctx;
     const scale = size / 100;

@@ -134,24 +134,33 @@ export class BattleScene {
    * 处理攻击按钮按下
    */
   private handleAttackButtonPress(): void {
-    console.log('攻击按钮按下');
+    // 尝试触发攻击
+    const success = this.playerCharacter.attack();
     this.attackButton.setPressed(true);
+
+    if (success) {
+      console.log(`攻击成功！伤害：${this.playerCharacter.attackDamage}`);
+      // 启动按钮冷却
+      this.attackButton.startCooldown(this.playerCharacter.attackCooldown * 1000);
+      // 攻击成功，攻击动画会自动在renderCharacter中渲染
+    } else {
+      console.log('攻击冷却中...');
+    }
   }
 
   /**
-   * 处理攻击（由update方法调用）
+   * 处理攻击（由update方法调用）- 已废弃，直接在按钮按下时触发攻击
    */
-  private handleAttack(): void {
-    console.log('执行攻击');
-    // 这里可以添加攻击逻辑，比如创建攻击动画、检测敌人等
-  }
 
   /**
-   * 技能1：基础攻击增强
+   * 技能1：基础攻击增强（附魔）
    */
   private executeSkill1(): void {
-    console.log('执行技能1：基础攻击增强');
-    // 这里可以添加技能1的效果，比如增加攻击力、播放特效等
+    console.log('执行技能1：基础攻击增强 - 附魔');
+    // 触发附魔效果
+    this.playerCharacter.enchant(5000); // 附魔持续5秒
+    // 更新渲染器的附魔状态
+    this.playerRenderer.setEnchanted(true);
   }
 
   /**
@@ -192,7 +201,7 @@ export class BattleScene {
 
     // 技能按钮配置（不同颜色和图标）
     const skillConfigs = [
-      { skillId: 'skill1', icon: '1', color: '#4a90d9', cooldown: 3 },
+      { skillId: 'skill1', icon: '1', color: '#4a90d9', cooldown: 5 },
       { skillId: 'skill2', icon: '2', color: '#34c759', cooldown: 5 },
       { skillId: 'skill3', icon: '3', color: '#ff9500', cooldown: 8 },
     ];
@@ -266,7 +275,8 @@ export class BattleScene {
     }
 
     // 更新玩家移动
-    if (joystickState.isMoving) {
+    // 攻击时不能移动
+    if (joystickState.isMoving && !this.playerCharacter.isAttacking) {
       const moveAmount = joystickState.direction.x * this.MOVE_SPEED * (deltaTime / 1000);
 
       // 更新位置
@@ -292,10 +302,9 @@ export class BattleScene {
           this.playerCharacter.setState(CharacterState.MOVING);
         }
       }
-    } else {
-      if (!this.playerCharacter.isJumping) {
-        this.playerCharacter.setState(CharacterState.IDLE);
-      }
+    } else if (!this.playerCharacter.isAttacking && !this.playerCharacter.isJumping) {
+      // 不在攻击中也不在跳跃中，设置待机状态
+      this.playerCharacter.setState(CharacterState.IDLE);
     }
 
     // 更新角色状态（重力、跳跃）
@@ -307,14 +316,12 @@ export class BattleScene {
     // 更新渲染器动画
     this.playerRenderer.update(deltaTime);
 
+    // 更新附魔状态
+    this.playerRenderer.setEnchanted(this.playerCharacter.isEnchanted);
+
     // 更新技能按钮冷却状态
     for (const skillButton of this.skillButtons) {
       skillButton.update();
-    }
-
-    // 更新攻击按钮状态，如果攻击按钮被按下则执行攻击
-    if (this.attackButton.update()) {
-      this.handleAttack();
     }
   }
 
@@ -365,7 +372,14 @@ export class BattleScene {
     }
 
     // 根据状态绘制角色
-    if (character.state === CharacterState.MOVING || character.isJumping) {
+    if (character.state === CharacterState.CHARGING) {
+      // 蓄力状态，绘制蓄力动画
+      this.playerRenderer.drawBattleCharging(config, size, character.direction, this.playerRenderer.getChargeProgress());
+    } else if (character.state === CharacterState.ATTACKING) {
+      // 攻击状态，绘制攻击动画
+      const isChargedAttack = this.playerRenderer.getChargeProgress() > 0;
+      this.playerRenderer.drawBattleAttacking(config, size, character.direction, character.attackProgress, isChargedAttack);
+    } else if (character.state === CharacterState.MOVING || character.isJumping) {
       this.playerRenderer.drawBattleMoving(config, size);
     } else {
       this.playerRenderer.drawBattleIdle(config, size);

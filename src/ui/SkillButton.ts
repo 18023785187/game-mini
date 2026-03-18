@@ -16,6 +16,7 @@ export interface SkillButtonConfig {
   icon?: string;           // 图标文字（暂时用文字代替图标）
   color?: string;          // 按钮颜色
   cooldown?: number;       // 冷却时间（秒）
+  isCharging?: boolean;    // 是否为蓄力技能
 }
 
 /**
@@ -25,6 +26,7 @@ export interface SkillButtonState {
   isPressed: boolean;
   isCooling: boolean;
   cooldownProgress: number; // 0-1，冷却进度
+  chargeProgress: number;   // 0-1，蓄力进度（仅蓄力技能）
 }
 
 /**
@@ -35,12 +37,15 @@ export class SkillButton implements TouchableComponent {
   private state: SkillButtonState;
   private cooldownRemaining: number = 0; // 剩余冷却时间（秒）
   private lastUpdateTime: number = 0;
+  private pressStartTime: number = 0; // 按下开始时间（毫秒）
+  private chargeStartTime: number = 0; // 蓄力开始时间（毫秒）
 
   constructor(config: SkillButtonConfig) {
     this.config = {
       icon: '技',
       color: '#4a90d9',
       cooldown: 5,
+      isCharging: false,
       ...config,
     };
 
@@ -48,6 +53,7 @@ export class SkillButton implements TouchableComponent {
       isPressed: false,
       isCooling: false,
       cooldownProgress: 0,
+      chargeProgress: 0,
     };
   }
 
@@ -55,15 +61,15 @@ export class SkillButton implements TouchableComponent {
    * 绘制技能按钮
    */
   draw(ctx: CanvasRenderingContext2D): void {
-    const { x, y, size, icon, color } = this.config;
-    const { isPressed, isCooling, cooldownProgress } = this.state;
+    const { x, y, size, icon, color, isCharging } = this.config;
+    const { isPressed, isCooling, cooldownProgress, chargeProgress } = this.state;
     const radius = size / 2;
     const centerX = x + radius;
     const centerY = y + radius;
 
     // 绘制按钮背景（圆形）
     ctx.save();
-    
+
     // 绘制外圈
     ctx.fillStyle = isPressed ? this.darkenColor(color, 0.2) : color;
     ctx.beginPath();
@@ -83,6 +89,23 @@ export class SkillButton implements TouchableComponent {
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     ctx.stroke();
 
+    // 蓄力技能：显示蓄力进度环
+    if (isCharging && chargeProgress > 0 && !isCooling) {
+      // 绘制蓄力进度环（从上方开始顺时针）
+      ctx.strokeStyle = '#ffff00';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * chargeProgress);
+      ctx.stroke();
+
+      // 蓄力发光效果
+      ctx.shadowColor = '#ffff00';
+      ctx.shadowBlur = 10 * chargeProgress;
+      ctx.strokeStyle = `rgba(255, 255, 0, ${0.5 + chargeProgress * 0.5})`;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
     // 如果正在冷却，绘制冷却遮罩
     if (isCooling) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
@@ -98,6 +121,14 @@ export class SkillButton implements TouchableComponent {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(Math.ceil(this.cooldownRemaining).toString(), centerX, centerY);
+    } else if (isCharging) {
+      // 蓄力中：显示蓄力进度百分比
+      const chargePercent = Math.floor(chargeProgress * 100);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${size * 0.2}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${chargePercent}%`, centerX, centerY);
     } else {
       // 绘制技能图标（暂时用文字代替）
       ctx.fillStyle = '#ffffff';
@@ -183,7 +214,10 @@ export class SkillButton implements TouchableComponent {
     this.state.isPressed = false;
     this.state.isCooling = false;
     this.state.cooldownProgress = 0;
+    this.state.chargeProgress = 0;
     this.cooldownRemaining = 0;
+    this.pressStartTime = 0;
+    this.chargeStartTime = 0;
   }
 
   /**
