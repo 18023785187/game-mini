@@ -17,6 +17,8 @@ export interface SkillButtonConfig {
   color?: string;          // 按钮颜色
   cooldown?: number;       // 冷却时间（秒）
   isCharging?: boolean;    // 是否为蓄力技能
+  onPress?: () => void;    // 按下时回调（仅蓄力技能）
+  onRelease?: () => void;  // 松开时回调（仅蓄力技能）
 }
 
 /**
@@ -46,6 +48,8 @@ export class SkillButton implements TouchableComponent {
       color: '#4a90d9',
       cooldown: 5,
       isCharging: false,
+      onPress: undefined,
+      onRelease: undefined,
       ...config,
     };
 
@@ -167,12 +171,24 @@ export class SkillButton implements TouchableComponent {
    * 设置按下状态
    */
   setPressed(pressed: boolean): void {
-    if (!this.state.isCooling) {
-      this.state.isPressed = pressed;
+    if (this.state.isCooling) {
+      // 冷却中，不处理按下状态
+      return;
+    }
 
-      // 蓄力技能：按下时开始记录时间
-      if (this.config.isCharging && pressed) {
+    const wasPressed = this.state.isPressed;
+    this.state.isPressed = pressed;
+
+    // 蓄力技能：按下和松开时触发回调
+    if (this.config.isCharging) {
+      if (pressed && !wasPressed) {
+        // 按下时触发
+        this.config.onPress?.();
         this.chargeStartTime = Date.now();
+      } else if (!pressed && wasPressed) {
+        // 松开时触发
+        this.config.onRelease?.();
+        this.state.chargeProgress = 0;
       }
     }
   }

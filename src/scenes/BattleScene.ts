@@ -104,7 +104,7 @@ export class BattleScene {
   }
 
   /**
-   * 处理技能释放
+   * 处理技能释放（非蓄力技能）
    */
   private handleSkill(skillId: string): void {
     console.log(`释放技能: ${skillId}`);
@@ -113,27 +113,19 @@ export class BattleScene {
     const skillButton = this.skillButtons.find(btn => btn.getSkillId() === skillId);
     if (!skillButton) return;
 
-    // 检查是否为蓄力技能（技能3）
-    if (skillButton.isChargingSkill()) {
-      // 蓄力技能：按下开始蓄力，松开释放
-      if (!skillButton.isCoolingDown()) {
-        this.executeSkill3(skillButton);
-      }
-    } else {
-      // 非蓄力技能：点击直接释放
-      if (!skillButton.isCoolingDown()) {
-        // 触发技能冷却
-        skillButton.trigger();
+    // 非蓄力技能：点击直接释放
+    if (!skillButton.isCoolingDown()) {
+      // 触发技能冷却
+      skillButton.trigger();
 
-        // 根据技能ID执行不同的技能效果
-        switch (skillId) {
-        case 'skill1':
-          this.executeSkill1();
-          break;
-        case 'skill2':
-          this.executeSkill2();
-          break;
-        }
+      // 根据技能ID执行不同的技能效果
+      switch (skillId) {
+      case 'skill1':
+        this.executeSkill1();
+        break;
+      case 'skill2':
+        this.executeSkill2();
+        break;
       }
     }
   }
@@ -177,31 +169,6 @@ export class BattleScene {
   private executeSkill2(): void {
     console.log('执行技能2：范围攻击');
     // 这里可以添加技能2的效果
-  }
-
-  /**
-   * 技能3：蓄力重击
-   * @param skillButton 技能按钮（用于处理蓄力逻辑）
-   */
-  private executeSkill3(skillButton: SkillButton): void {
-    console.log('执行技能3：蓄力重击');
-
-    // 检查角色是否正在蓄力
-    if (this.playerCharacter.isCharging) {
-      // 正在蓄力中，松开按钮释放攻击
-      const damage = this.playerCharacter.releaseCharge();
-      console.log(`蓄力攻击释放！伤害：${damage}`);
-
-      // 触发技能冷却（仅在释放时触发）
-      skillButton.trigger();
-
-      // 清除渲染器的蓄力状态
-      this.playerRenderer.setChargeProgress(0);
-    } else if (!skillButton.isCoolingDown()) {
-      // 不在蓄力中且技能不在冷却，开始蓄力
-      this.playerCharacter.startCharging();
-      console.log('开始蓄力...');
-    }
   }
 
   /**
@@ -275,10 +242,33 @@ export class BattleScene {
       color: skillConfigs[2].color,
       cooldown: skillConfigs[2].cooldown,
       isCharging: skillConfigs[2].isCharging,
+      onPress: () => {
+        // 按下时开始蓄力
+        if (!this.playerCharacter.isCharging) {
+          this.playerCharacter.startCharging();
+          console.log('开始蓄力...');
+        }
+      },
+      onRelease: () => {
+        // 松开时释放攻击
+        if (this.playerCharacter.isCharging) {
+          const damage = this.playerCharacter.releaseCharge();
+          console.log(`蓄力攻击释放！伤害：${damage}`);
+
+          // 触发技能冷却（仅在释放时触发）
+          skill3Button.trigger();
+
+          // 清除渲染器的蓄力状态
+          this.playerRenderer.setChargeProgress(0);
+        }
+      },
     });
     this.skillButtons.push(skill3Button);
     this.touchManager.addComponent(skill3Button, () => {
-      this.handleSkill(skillConfigs[2].skillId);
+      // 蓄力技能不使用handleSkill，而是通过onPress/onRelease处理
+      if (!skill3Button.isChargingSkill()) {
+        this.handleSkill(skillConfigs[2].skillId);
+      }
     });
     
     // 注册攻击按钮触摸事件
