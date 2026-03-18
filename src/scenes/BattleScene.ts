@@ -245,18 +245,14 @@ export class BattleScene {
       isCharging: skillConfigs[2].isCharging,
       onPress: () => {
         // 按下时开始蓄力
-        console.log('BattleScene: skill3 onPress被调用, 当前isCharging:', this.playerCharacter.isCharging);
         if (!this.playerCharacter.isCharging && !skill3Button.isCoolingDown()) {
           this.playerCharacter.startCharging();
-          console.log('BattleScene: 开始蓄力成功, isCharging:', this.playerCharacter.isCharging);
         }
       },
       onRelease: () => {
         // 松开时释放攻击
-        console.log('BattleScene: skill3 onRelease被调用, 当前isCharging:', this.playerCharacter.isCharging);
         if (this.playerCharacter.isCharging) {
-          const damage = this.playerCharacter.releaseCharge();
-          console.log(`BattleScene: 蓄力攻击释放！伤害：${damage}`);
+          this.playerCharacter.releaseCharge();
 
           // 触发技能冷却（仅在释放时触发）
           skill3Button.trigger();
@@ -345,10 +341,9 @@ export class BattleScene {
     if (this.playerCharacter.state === CharacterState.CHARGING) {
       const progress = this.playerCharacter.chargeProgress;
       this.playerRenderer.setChargeProgress(progress);
-      console.log('update: 蓄力中, progress:', progress, 'chargeProgress:', this.playerRenderer.getChargeProgress());
     } else if (this.playerCharacter.state === CharacterState.ATTACKING && !this.playerCharacter.isCharging) {
       // 攻击状态且不在蓄力中，保持蓄力进度不变（用于蓄力攻击动画）
-      console.log('update: 蓄力攻击中, chargeProgress:', this.playerRenderer.getChargeProgress());
+      // 不做任何操作，保持现有的chargeProgress
     } else {
       // 其他状态清零
       this.playerRenderer.setChargeProgress(0);
@@ -360,7 +355,6 @@ export class BattleScene {
       const skill3Button = this.skillButtons.find(btn => btn.getSkillId() === 'skill3');
       if (skill3Button && !skill3Button.isCoolingDown()) {
         skill3Button.trigger();
-        console.log('BattleScene: 自动触发技能3冷却');
       }
     }
     this.wasCharging = this.playerCharacter.isCharging;
@@ -420,7 +414,6 @@ export class BattleScene {
     // 根据状态绘制角色
     if (character.state === CharacterState.CHARGING) {
       // 蓄力状态，绘制蓄力动画
-      console.log('renderCharacter: 绘制蓄力动画, chargeProgress:', this.playerRenderer.getChargeProgress());
       this.playerRenderer.drawBattleCharging(config, size, character.direction, this.playerRenderer.getChargeProgress());
     } else if (character.state === CharacterState.ATTACKING) {
       // 攻击状态，绘制攻击动画
