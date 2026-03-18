@@ -108,24 +108,32 @@ export class BattleScene {
    */
   private handleSkill(skillId: string): void {
     console.log(`释放技能: ${skillId}`);
-    
+
     // 找到对应的技能按钮
     const skillButton = this.skillButtons.find(btn => btn.getSkillId() === skillId);
-    if (skillButton && !skillButton.isCoolingDown()) {
-      // 触发技能冷却
-      skillButton.trigger();
-      
-      // 根据技能ID执行不同的技能效果
-      switch (skillId) {
-      case 'skill1':
-        this.executeSkill1();
-        break;
-      case 'skill2':
-        this.executeSkill2();
-        break;
-      case 'skill3':
-        this.executeSkill3();
-        break;
+    if (!skillButton) return;
+
+    // 检查是否为蓄力技能（技能3）
+    if (skillButton.isChargingSkill()) {
+      // 蓄力技能：按下开始蓄力，松开释放
+      if (!skillButton.isCoolingDown()) {
+        this.executeSkill3(skillButton);
+      }
+    } else {
+      // 非蓄力技能：点击直接释放
+      if (!skillButton.isCoolingDown()) {
+        // 触发技能冷却
+        skillButton.trigger();
+
+        // 根据技能ID执行不同的技能效果
+        switch (skillId) {
+        case 'skill1':
+          this.executeSkill1();
+          break;
+        case 'skill2':
+          this.executeSkill2();
+          break;
+        }
       }
     }
   }
@@ -172,11 +180,28 @@ export class BattleScene {
   }
 
   /**
-   * 技能3：终极技能
+   * 技能3：蓄力重击
+   * @param skillButton 技能按钮（用于处理蓄力逻辑）
    */
-  private executeSkill3(): void {
-    console.log('执行技能3：终极技能');
-    // 这里可以添加技能3的效果
+  private executeSkill3(skillButton: SkillButton): void {
+    console.log('执行技能3：蓄力重击');
+
+    // 检查角色是否正在蓄力
+    if (this.playerCharacter.isCharging) {
+      // 正在蓄力中，松开按钮释放攻击
+      const damage = this.playerCharacter.releaseCharge();
+      console.log(`蓄力攻击释放！伤害：${damage}`);
+
+      // 触发技能冷却（仅在释放时触发）
+      skillButton.trigger();
+
+      // 清除渲染器的蓄力状态
+      this.playerRenderer.setChargeProgress(0);
+    } else if (!skillButton.isCoolingDown()) {
+      // 不在蓄力中且技能不在冷却，开始蓄力
+      this.playerCharacter.startCharging();
+      console.log('开始蓄力...');
+    }
   }
 
   /**
@@ -201,9 +226,9 @@ export class BattleScene {
 
     // 技能按钮配置（不同颜色和图标）
     const skillConfigs = [
-      { skillId: 'skill1', icon: '1', color: '#4a90d9', cooldown: 5 },
-      { skillId: 'skill2', icon: '2', color: '#34c759', cooldown: 5 },
-      { skillId: 'skill3', icon: '3', color: '#ff9500', cooldown: 8 },
+      { skillId: 'skill1', icon: '1', color: '#4a90d9', cooldown: 5, isCharging: false },
+      { skillId: 'skill2', icon: '2', color: '#34c759', cooldown: 10, isCharging: false },
+      { skillId: 'skill3', icon: '3', color: '#ff9500', cooldown: 30, isCharging: true },
     ];
 
     // 按钮大小已定义，直接使用
@@ -217,6 +242,7 @@ export class BattleScene {
       icon: skillConfigs[0].icon,
       color: skillConfigs[0].color,
       cooldown: skillConfigs[0].cooldown,
+      isCharging: skillConfigs[0].isCharging,
     });
     this.skillButtons.push(skill1Button);
     this.touchManager.addComponent(skill1Button, () => {
@@ -232,6 +258,7 @@ export class BattleScene {
       icon: skillConfigs[1].icon,
       color: skillConfigs[1].color,
       cooldown: skillConfigs[1].cooldown,
+      isCharging: skillConfigs[1].isCharging,
     });
     this.skillButtons.push(skill2Button);
     this.touchManager.addComponent(skill2Button, () => {
@@ -247,6 +274,7 @@ export class BattleScene {
       icon: skillConfigs[2].icon,
       color: skillConfigs[2].color,
       cooldown: skillConfigs[2].cooldown,
+      isCharging: skillConfigs[2].isCharging,
     });
     this.skillButtons.push(skill3Button);
     this.touchManager.addComponent(skill3Button, () => {
@@ -318,6 +346,13 @@ export class BattleScene {
 
     // 更新附魔状态
     this.playerRenderer.setEnchanted(this.playerCharacter.isEnchanted);
+
+    // 同步蓄力进度到渲染器
+    if (this.playerCharacter.isCharging) {
+      this.playerRenderer.setChargeProgress(this.playerCharacter.chargeProgress);
+    } else {
+      this.playerRenderer.setChargeProgress(0);
+    }
 
     // 更新技能按钮冷却状态
     for (const skillButton of this.skillButtons) {

@@ -169,6 +169,11 @@ export class SkillButton implements TouchableComponent {
   setPressed(pressed: boolean): void {
     if (!this.state.isCooling) {
       this.state.isPressed = pressed;
+
+      // 蓄力技能：按下时开始记录时间
+      if (this.config.isCharging && pressed) {
+        this.chargeStartTime = Date.now();
+      }
     }
   }
 
@@ -190,20 +195,31 @@ export class SkillButton implements TouchableComponent {
    * 更新冷却状态
    */
   update(): void {
-    if (!this.state.isCooling) return;
-
     const currentTime = Date.now();
     const deltaTime = (currentTime - this.lastUpdateTime) / 1000; // 转换为秒
     this.lastUpdateTime = currentTime;
 
-    this.cooldownRemaining -= deltaTime;
+    // 更新冷却状态
+    if (this.state.isCooling) {
+      this.cooldownRemaining -= deltaTime;
 
-    if (this.cooldownRemaining <= 0) {
-      this.cooldownRemaining = 0;
-      this.state.isCooling = false;
-      this.state.cooldownProgress = 0;
-    } else {
-      this.state.cooldownProgress = 1 - (this.cooldownRemaining / this.config.cooldown);
+      if (this.cooldownRemaining <= 0) {
+        this.cooldownRemaining = 0;
+        this.state.isCooling = false;
+        this.state.cooldownProgress = 0;
+      } else {
+        this.state.cooldownProgress = 1 - (this.cooldownRemaining / this.config.cooldown);
+      }
+    }
+
+    // 更新蓄力进度（仅蓄力技能）
+    if (this.config.isCharging && this.state.isPressed && !this.state.isCooling) {
+      const chargeDuration = currentTime - this.chargeStartTime;
+      const maxChargeTime = 5000; // 5秒最大蓄力时间
+      this.state.chargeProgress = Math.min(chargeDuration / maxChargeTime, 1);
+    } else if (!this.state.isPressed) {
+      // 未按下时重置蓄力进度
+      this.state.chargeProgress = 0;
     }
   }
 
@@ -232,6 +248,13 @@ export class SkillButton implements TouchableComponent {
    */
   isCoolingDown(): boolean {
     return this.state.isCooling;
+  }
+
+  /**
+   * 是否为蓄力技能
+   */
+  isChargingSkill(): boolean {
+    return this.config.isCharging;
   }
 
   /**
