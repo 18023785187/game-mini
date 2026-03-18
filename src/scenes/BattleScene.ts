@@ -180,8 +180,8 @@ export class BattleScene {
     // 计算投射物发射位置（从射击手的枪口位置发射）
     // 世界坐标系：Y轴向上为正
     // 角色y是脚底位置，枪口在身体上半部分（约向上45像素）
-    // 向右时从右手枪口发射（向右偏移），向左时从左手枪口发射（向左偏移）
-    const gunOffsetX = this.playerCharacter.direction === CharacterDirection.RIGHT ? 22 : -22;
+    // 朝右时从右手枪口发射（右手枪在cx+22），朝左时从左手枪口发射（左手枪在cx-8）
+    const gunOffsetX = this.playerCharacter.direction === CharacterDirection.RIGHT ? 22 : -8;
     const projectileX = this.playerCharacter.x + gunOffsetX;
     const projectileY = this.playerCharacter.y + 45; // 从枪口位置发射（向上偏移，因为Y轴向上为正）
 
@@ -453,11 +453,11 @@ export class BattleScene {
     // 渲染地图（包括背景、地面、平台、装饰物）
     this.battleMap.render(ctx);
 
-    // 渲染投射物
-    this.renderProjectiles();
-
     // 渲染角色
     this.renderCharacter();
+
+    // 渲染投射物（在角色之后渲染，确保子弹在身体上方）
+    this.renderProjectiles();
 
     // 渲染UI
     this.renderUI();

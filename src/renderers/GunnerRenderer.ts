@@ -15,7 +15,7 @@ export class GunnerRenderer implements ICharacterRenderer {
    * 渲染战斗场景中的神枪手 - 侧身西部牛仔风格
    */
   renderBattle(ctx: CanvasRenderingContext2D, config: CharacterConfig, params: RenderParams): void {
-    const { cx, cy, scale, walkCycle, isMoving, direction } = params;
+    const { cx, cy, scale, walkCycle, isMoving } = params;
 
     // 腿部动画 - 侧身视图，前后腿分离
     const rightLegAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.2 : 0;
@@ -142,49 +142,6 @@ export class GunnerRenderer implements ICharacterRenderer {
     
     ctx.restore();
 
-    // 后手（左手）持枪 - 左轮手枪
-    ctx.save();
-    ctx.translate(cx - 16 * scale, cy + 2 * scale);
-
-    // 手臂走路摆动角度
-    const leftArmAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.15 : 0;
-
-    // 手臂旋转 = 走路摆动 + 基础举枪角度(90度,枪水平)
-    ctx.rotate(leftArmAngle + Math.PI / 2);
-
-    // 左臂 - 牛仔衬衫袖子
-    const armGradient = ctx.createLinearGradient(-4 * scale, 0, 4 * scale, 0);
-    armGradient.addColorStop(0, '#3a3530');
-    armGradient.addColorStop(0.5, '#4a4540');
-    armGradient.addColorStop(1, '#3a3530');
-    ctx.fillStyle = armGradient;
-    ctx.beginPath();
-    ctx.ellipse(0, -3 * scale, 5 * scale, 11 * scale, 0.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 手（简化手掌）
-    ctx.save();
-    ctx.translate(0, 8 * scale);
-    ctx.fillStyle = '#ddaa88';
-    // 手掌
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 4 * scale, 4 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // 手指（简化）
-    ctx.fillRect(-1 * scale, -4 * scale, 1 * scale, 3 * scale);  // 拇指
-    ctx.fillRect(0 * scale, -5 * scale, 1 * scale, 4 * scale);   // 食指
-    ctx.fillRect(1 * scale, -5 * scale, 1 * scale, 4 * scale);   // 中指
-    ctx.restore();
-
-    // 枪（始终完整绘制）
-    ctx.save();
-    ctx.translate(0, 15 * scale);
-    // 枪的枪口向上(y=-20),朝左时直接绘制(枪口向左)
-    this.drawRevolver(ctx, 0, 0, scale, 0);
-    ctx.restore();
-
-    ctx.restore();
-
     // 身体 - 侧身视图
     const bodyGradient = ctx.createRadialGradient(cx - 3 * scale, cy - 5 * scale, 0, cx, cy, 22 * scale);
     bodyGradient.addColorStop(0, '#4a4540');
@@ -242,8 +199,12 @@ export class GunnerRenderer implements ICharacterRenderer {
     // 手臂旋转 = 走路摆动 + 基础举枪角度(-90度,枪水平)
     ctx.rotate(rightArmAngle - Math.PI / 2);
 
-    // 右臂
-    ctx.fillStyle = armGradient;
+    // 右臂 - 牛仔衬衫袖子
+    const rightArmGradient = ctx.createLinearGradient(-4 * scale, 0, 4 * scale, 0);
+    rightArmGradient.addColorStop(0, '#3a3530');
+    rightArmGradient.addColorStop(0.5, '#4a4540');
+    rightArmGradient.addColorStop(1, '#3a3530');
+    ctx.fillStyle = rightArmGradient;
     ctx.beginPath();
     ctx.ellipse(0, -3 * scale, 5 * scale, 11 * scale, -0.2, 0, Math.PI * 2);
     ctx.fill();
@@ -265,9 +226,51 @@ export class GunnerRenderer implements ICharacterRenderer {
     // 枪（始终完整绘制）
     ctx.save();
     ctx.translate(0, 15 * scale);
-    // 枪的枪口向上(y=-20),朝右时旋转180度(枪口向右)
-    const gunRotation = direction === 'right' ? Math.PI : 0;
-    this.drawRevolver(ctx, 0, 0, scale, gunRotation);
+    // 枪的枪口向上(y=-20),右手枪旋转180度(枪口朝右)
+    this.drawRevolver(ctx, 0, 0, scale, Math.PI);
+    ctx.restore();
+
+    ctx.restore();
+
+    // 后手（左手）持枪 - 左轮手枪
+    ctx.save();
+    ctx.translate(cx - 8 * scale, cy + 2 * scale);
+
+    // 手臂走路摆动角度
+    const leftArmAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.15 : 0;
+
+    // 手臂旋转 = 走路摆动 + 基础举枪角度(90度,枪水平)
+    ctx.rotate(leftArmAngle + Math.PI / 2);
+
+    // 左臂 - 牛仔衬衫袖子
+    const armGradient = ctx.createLinearGradient(-4 * scale, 0, 4 * scale, 0);
+    armGradient.addColorStop(0, '#3a3530');
+    armGradient.addColorStop(0.5, '#4a4540');
+    armGradient.addColorStop(1, '#3a3530');
+    ctx.fillStyle = armGradient;
+    ctx.beginPath();
+    ctx.ellipse(0, -3 * scale, 5 * scale, 11 * scale, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 手（简化手掌）
+    ctx.save();
+    ctx.translate(0, 8 * scale);
+    ctx.fillStyle = '#ddaa88';
+    // 手掌
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 4 * scale, 4 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 手指（简化）
+    ctx.fillRect(-1 * scale, -4 * scale, 1 * scale, 3 * scale);  // 拇指
+    ctx.fillRect(0 * scale, -5 * scale, 1 * scale, 4 * scale);   // 食指
+    ctx.fillRect(1 * scale, -5 * scale, 1 * scale, 4 * scale);   // 中指
+    ctx.restore();
+
+    // 枪（始终完整绘制）
+    ctx.save();
+    ctx.translate(0, 15 * scale);
+    // 枪的枪口向上(y=-20),左手枪不旋转(枪口朝左)
+    this.drawRevolver(ctx, 0, 0, scale, 0);
     ctx.restore();
 
     ctx.restore();
