@@ -244,16 +244,18 @@ export class BattleScene {
       isCharging: skillConfigs[2].isCharging,
       onPress: () => {
         // 按下时开始蓄力
+        console.log('BattleScene: skill3 onPress被调用, 当前isCharging:', this.playerCharacter.isCharging);
         if (!this.playerCharacter.isCharging) {
           this.playerCharacter.startCharging();
-          console.log('开始蓄力...');
+          console.log('BattleScene: 开始蓄力成功, isCharging:', this.playerCharacter.isCharging);
         }
       },
       onRelease: () => {
         // 松开时释放攻击
+        console.log('BattleScene: skill3 onRelease被调用, 当前isCharging:', this.playerCharacter.isCharging);
         if (this.playerCharacter.isCharging) {
           const damage = this.playerCharacter.releaseCharge();
-          console.log(`蓄力攻击释放！伤害：${damage}`);
+          console.log(`BattleScene: 蓄力攻击释放！伤害：${damage}`);
 
           // 触发技能冷却（仅在释放时触发）
           skill3Button.trigger();

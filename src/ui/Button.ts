@@ -64,7 +64,7 @@ export interface ButtonConfig {
  */
 export class Button implements TouchableComponent {
   private config: ButtonConfigFull;
-  private isPressed: boolean = false;
+  isPressed: boolean = false; // 公开属性，用于TouchManager检查
 
   constructor(config: ButtonConfig) {
     this.config = {
@@ -274,8 +274,11 @@ export class TouchManager {
     const touch = e.touches[0];
     const point: TouchPoint = { x: touch.clientX, y: touch.clientY };
 
+    console.log('TouchManager: handleTouchStart, point:', point);
+
     for (const component of data.components) {
       if (component.containsPoint(point)) {
+        console.log('TouchManager: 找到组件，调用setPressed(true)');
         component.setPressed(true);
         break;
       }
@@ -294,14 +297,19 @@ export class TouchManager {
     const touch = e.changedTouches[0];
     const point: TouchPoint = { x: touch.clientX, y: touch.clientY };
 
+    console.log('TouchManager: handleTouchEnd, point:', point);
+
     for (const component of data.components) {
       if (component.containsPoint(point)) {
         // 检查组件是否有isPressed属性（为了兼容性）
-        const isPressed = component.isPressed !== undefined ? 
+        const isPressed = component.isPressed !== undefined ?
           component.isPressed : true;
-        
+
+        console.log('TouchManager: 找到组件，isPressed:', isPressed);
+
         if (isPressed) {
           const callback = data.callbacks.get(component);
+          console.log('TouchManager: 调用回调');
           callback?.();
         }
         break;

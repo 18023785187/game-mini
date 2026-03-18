@@ -48,8 +48,8 @@ export class SkillButton implements TouchableComponent {
       color: '#4a90d9',
       cooldown: 5,
       isCharging: false,
-      onPress: undefined,
-      onRelease: undefined,
+      onPress: () => {},
+      onRelease: () => {},
       ...config,
     };
 
@@ -183,10 +183,12 @@ export class SkillButton implements TouchableComponent {
     if (this.config.isCharging) {
       if (pressed && !wasPressed) {
         // 按下时触发
+        console.log('SkillButton: onPress被调用');
         this.config.onPress?.();
         this.chargeStartTime = Date.now();
       } else if (!pressed && wasPressed) {
         // 松开时触发
+        console.log('SkillButton: onRelease被调用');
         this.config.onRelease?.();
         this.state.chargeProgress = 0;
       }
