@@ -99,11 +99,13 @@ export class CharacterRenderer {
    * @param chargeProgress 蓄力进度（0-1）
    */
   drawBattleCharging(config: CharacterConfig, size: number, direction: CharacterDirection, chargeProgress: number): void {
+    console.log('[CharacterRenderer] drawBattleCharging被调用, chargeProgress:', chargeProgress);
     // 蓄力状态：角色微微颤抖，剑发光增强
     const shake = Math.sin(Date.now() / 50) * 2; // 震动效果
     this.drawBattleCharacterBase(config, size, shake, false, 0, -0.5, direction, true, chargeProgress);
 
     // 蓄力进度环特效
+    console.log('[CharacterRenderer] 准备绘制光环特效');
     this.drawChargingAura(size, chargeProgress);
   }
 

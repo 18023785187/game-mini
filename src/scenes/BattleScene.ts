@@ -341,11 +341,16 @@ export class BattleScene {
     this.playerRenderer.setEnchanted(this.playerCharacter.isEnchanted);
 
     // 同步蓄力进度到渲染器
-    if (this.playerCharacter.isCharging) {
+    // 只有在真正的蓄力状态下才更新进度，攻击状态不清零
+    if (this.playerCharacter.state === CharacterState.CHARGING) {
       const progress = this.playerCharacter.chargeProgress;
       this.playerRenderer.setChargeProgress(progress);
       console.log('update: 蓄力中, progress:', progress, 'chargeProgress:', this.playerRenderer.getChargeProgress());
+    } else if (this.playerCharacter.state === CharacterState.ATTACKING && !this.playerCharacter.isCharging) {
+      // 攻击状态且不在蓄力中，保持蓄力进度不变（用于蓄力攻击动画）
+      console.log('update: 蓄力攻击中, chargeProgress:', this.playerRenderer.getChargeProgress());
     } else {
+      // 其他状态清零
       this.playerRenderer.setChargeProgress(0);
     }
 
