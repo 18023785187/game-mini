@@ -19,6 +19,9 @@ export class CharacterRenderer {
   private animationTime: number = 0;
   private isEnchanted: boolean = false; // 附魔状态
   private chargeProgress: number = 0; // 蓄力进度 0-1
+  private isRapidFire: boolean = false; // 双枪连射状态
+  private rapidFireProgress: number = 0; // 双枪连射进度 0-1
+  private rapidFireShotsFired: number = 0; // 已射击次数
 
   // 各角色的独立渲染器
   private renderers: Map<string, ICharacterRenderer> = new Map();
@@ -64,6 +67,26 @@ export class CharacterRenderer {
    */
   getEnchanted(): boolean {
     return this.isEnchanted;
+  }
+
+  /**
+   * 设置双枪连射状态
+   */
+  setRapidFire(isRapidFire: boolean, progress: number = 0, shotsFired: number = 0): void {
+    this.isRapidFire = isRapidFire;
+    this.rapidFireProgress = progress;
+    this.rapidFireShotsFired = shotsFired;
+  }
+
+  /**
+   * 获取双枪连射状态
+   */
+  getRapidFire(): { isRapidFire: boolean; progress: number; shotsFired: number } {
+    return {
+      isRapidFire: this.isRapidFire,
+      progress: this.rapidFireProgress,
+      shotsFired: this.rapidFireShotsFired,
+    };
   }
 
   /**
@@ -140,20 +163,25 @@ export class CharacterRenderer {
 
     // 绘制冲刺残影
     if (dashProgress > 0) {
-      this.drawDashTrail(config, size, direction, dashProgress);
+      this.drawDashTrail(config, size, dashProgress);
     }
 
     // 绘制基础角色
     this.drawBattleCharacterBase(config, size, 0, false, attackProgress, swingAngle, direction, false, 0);
 
     // 冲刺特效：速度线
-    this.drawDashEffect(size, direction, dashProgress);
+    this.drawDashEffect(size, dashProgress);
   }
 
   /**
    * 绘制冲刺残影
    */
-  private drawDashTrail(config: CharacterConfig, size: number, direction: CharacterDirection, dashProgress: number): void {
+  private drawDashTrail(config: CharacterConfig, size: number, dashProgress: number): void {
+    // 参数验证
+    if (!Number.isFinite(dashProgress) || dashProgress < 0 || dashProgress > 1) {
+      return;
+    }
+
     const ctx = this.ctx;
     const cx = size * 0.5;
     const cy = size * 0.5;
@@ -167,8 +195,8 @@ export class CharacterRenderer {
       const trailProgress = i / trailCount;
       const alpha = (1 - trailProgress) * 0.3; // 残影透明度
 
-      // 残影位置（后方）
-      const offsetX = direction === CharacterDirection.RIGHT ? -trailSpacing * i : trailSpacing * i;
+      // 残影位置（始终在后方，朝向由画布翻转处理）
+      const offsetX = -trailSpacing * i;
 
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -186,7 +214,12 @@ export class CharacterRenderer {
   /**
    * 绘制冲刺特效
    */
-  private drawDashEffect(size: number, direction: CharacterDirection, dashProgress: number): void {
+  private drawDashEffect(size: number, dashProgress: number): void {
+    // 参数验证
+    if (!Number.isFinite(dashProgress) || dashProgress < 0 || dashProgress > 1) {
+      return;
+    }
+
     const ctx = this.ctx;
     const cx = size * 0.5;
     const cy = size * 0.5;
@@ -201,8 +234,9 @@ export class CharacterRenderer {
 
     for (let i = 0; i < lineCount; i++) {
       const yOffset = (i - lineCount / 2) * 15 * scale;
-      const startX = direction === CharacterDirection.RIGHT ? cx - lineWidth : cx + lineWidth;
-      const endX = direction === CharacterDirection.RIGHT ? cx - 20 * scale : cx + 20 * scale;
+      // 速度线始终在角色后方（左侧），朝向由画布翻转处理
+      const startX = cx - lineWidth;
+      const endX = cx - 20 * scale;
 
       ctx.strokeStyle = `rgba(255, 255, 255, ${lineAlpha})`;
       ctx.lineWidth = 2 * scale;
@@ -326,6 +360,9 @@ export class CharacterRenderer {
       isEnchanted: this.isEnchanted,
       isChargedAttack,
       chargeProgress: chargeProgress > 0 ? chargeProgress : this.chargeProgress,
+      isRapidFire: this.isRapidFire,
+      rapidFireProgress: this.rapidFireProgress,
+      rapidFireShotsFired: this.rapidFireShotsFired,
     };
 
     // 获取对应角色的渲染器
@@ -408,6 +445,9 @@ export class CharacterRenderer {
       isEnchanted: false,
       isChargedAttack: false,
       chargeProgress: 0,
+      isRapidFire: false,
+      rapidFireProgress: 0,
+      rapidFireShotsFired: 0,
     };
 
     // 获取对应角色的渲染器，使用战斗渲染方法

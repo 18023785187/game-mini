@@ -6,7 +6,7 @@
  */
 
 /* eslint-disable */
-// @ts-ignore
+// @ts-nocheck
 import { Character, CharacterDirection } from '../entities/Character';
 import { BattleMap } from './BattleMap';
 

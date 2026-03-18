@@ -120,6 +120,12 @@ export class BattleScene {
   private handleSkill(skillId: string): void {
     console.log(`释放技能: ${skillId}`);
 
+    // 神枪手双枪连射期间不能使用其他技能
+    if (this.playerCharacter.isRapidFire) {
+      console.log('双枪连射期间不能使用其他技能');
+      return;
+    }
+
     // 找到对应的技能按钮
     const skillButton = this.skillButtons.find(btn => btn.getSkillId() === skillId);
     if (!skillButton) return;
@@ -145,6 +151,12 @@ export class BattleScene {
    * 处理攻击按钮按下
    */
   private handleAttackButtonPress(): void {
+    // 神枪手双枪连射期间不能普攻
+    if (this.playerCharacter.isRapidFire) {
+      console.log('双枪连射期间不能普攻');
+      return;
+    }
+
     // 尝试触发攻击
     const success = this.playerCharacter.attack();
     this.attackButton.setPressed(true);
@@ -209,18 +221,99 @@ export class BattleScene {
   }
 
   /**
+   * 为双枪连射创建投射物（神枪手技能3）
+   * 双枪连射时可以移动，每枪伤害5点
+   */
+  private createProjectileForRapidFire(): void {
+    // 双枪连射时交替从左右枪发射
+    const shotIndex = this.playerCharacter.rapidFireShotsFired;
+    // 偶数从右枪发射，奇数从左枪发射
+    const gunOffsetX = shotIndex % 2 === 0
+      ? (this.playerCharacter.direction === CharacterDirection.RIGHT ? 22 : -8)
+      : (this.playerCharacter.direction === CharacterDirection.RIGHT ? -8 : 22);
+
+    const projectileX = this.playerCharacter.x + gunOffsetX;
+    const projectileY = this.playerCharacter.y + 45;
+
+    // 创建投射物配置
+    const projectileConfig: ProjectileConfig = {
+      type: ProjectileType.BULLET,
+      damage: 2, // 每枪伤害2点
+      speed: 480, // 子弹速度480像素/秒
+      range: this.playerCharacter.attackRange * 60, // 射程转换为像素
+      size: 15, // 子弹尺寸稍小
+      color: '#ffcc00', // 双枪连射子弹为金色
+    };
+
+    // 创建投射物
+    const projectile = new Projectile(
+      projectileX,
+      projectileY,
+      this.playerCharacter.direction,
+      projectileConfig,
+      this.playerCharacter.id
+    );
+
+    this.projectiles.push(projectile);
+    console.log(`双枪连射 #${shotIndex + 1}，位置: (${projectileX}, ${projectileY})`);
+  }
+
+  /**
    * 处理攻击（由update方法调用）- 已废弃，直接在按钮按下时触发攻击
    */
 
   /**
-   * 技能1：基础攻击增强（附魔）
+   * 技能1：根据角色类型执行不同技能
    */
   private executeSkill1(): void {
-    console.log('执行技能1：基础攻击增强 - 附魔');
-    // 触发附魔效果
-    this.playerCharacter.enchant(5000); // 附魔持续5秒
-    // 更新渲染器的附魔状态
-    this.playerRenderer.setEnchanted(true);
+    console.log('执行技能1');
+
+    switch (this.playerCharacter.id) {
+    case CharacterId.BERSERKER:
+      // 狂战士：强化下一次普攻，造成双倍伤害
+      console.log('狂战士：强化下一次普攻');
+      this.playerCharacter.enchant(5000); // 附魔持续5秒
+      this.playerRenderer.setEnchanted(true);
+      break;
+    case CharacterId.GUNNER:
+      // 神枪手：扔炸弹
+      console.log('神枪手：扔炸弹');
+      this.createBomb();
+      break;
+    case CharacterId.TANK:
+      // 肉盾：按住举起盾牌（待实现）
+      console.log('肉盾：举盾（待实现）');
+      break;
+    }
+  }
+
+  /**
+   * 创建炸弹（神枪手技能1）
+   */
+  private createBomb(): void {
+    const direction = this.playerCharacter.direction;
+    const projectileX = this.playerCharacter.x;
+    const projectileY = this.playerCharacter.y + 45;
+
+    const projectileConfig: ProjectileConfig = {
+      type: ProjectileType.BOMB,
+      damage: 20, // 造成20点伤害
+      speed: 400, // 较慢的飞行速度
+      range: 10 * 60, // 射程10个单位 = 600像素
+      size: 25,
+      color: '#ff6600',
+      explosionRadius: 6 * 60, // 爆炸范围6个单位 = 360像素
+    };
+
+    const projectile = new Projectile(
+      projectileX,
+      projectileY,
+      direction,
+      projectileConfig,
+      'player'
+    );
+
+    this.projectiles.push(projectile);
   }
 
   /**
@@ -230,6 +323,28 @@ export class BattleScene {
     console.log('执行技能2：冲刺挥砍');
     // 触发冲刺
     this.playerCharacter.startDash();
+  }
+
+  /**
+   * 技能3：根据角色类型执行不同技能
+   */
+  private executeSkill3(): void {
+    console.log('执行技能3');
+
+    switch (this.playerCharacter.id) {
+    case CharacterId.GUNNER:
+      // 神枪手：双枪连射
+      console.log('神枪手：开始双枪连射');
+      this.playerCharacter.startRapidFire();
+      break;
+    case CharacterId.TANK:
+      // 肉盾：装甲模式（待实现）
+      console.log('肉盾：装甲模式（待实现）');
+      break;
+    case CharacterId.BERSERKER:
+      // 狂战士：蓄力攻击（通过onPress/onRelease处理）
+      break;
+    }
   }
 
   /**
@@ -252,11 +367,44 @@ export class BattleScene {
       color: '#ff6b6b',
     });
 
-    // 技能按钮配置（不同颜色和图标）
+    // 技能按钮配置（不同颜色和图标，根据角色设置冷却时间）
+    const getSkillCooldowns = () => {
+      switch (this.playerCharacter.id) {
+      case CharacterId.BERSERKER:
+        // 狂战士：技能1冷却5秒，技能2冷却10秒，技能3冷却30秒
+        return {
+          skill1: 5,
+          skill2: 10,
+          skill3: 30,
+        };
+      case CharacterId.GUNNER:
+        // 神枪手：技能1冷却10秒，技能2冷却5秒，技能3冷却30秒
+        return {
+          skill1: 10,
+          skill2: 5,
+          skill3: 30,
+        };
+      case CharacterId.TANK:
+        // 肉盾：技能1无冷却，技能2冷却5秒，技能3冷却30秒
+        return {
+          skill1: 0,
+          skill2: 5,
+          skill3: 30,
+        };
+      default:
+        return {
+          skill1: 5,
+          skill2: 10,
+          skill3: 30,
+        };
+      }
+    };
+
+    const skillCooldowns = getSkillCooldowns();
     const skillConfigs = [
-      { skillId: 'skill1', icon: '1', color: '#4a90d9', cooldown: 5, isCharging: false },
-      { skillId: 'skill2', icon: '2', color: '#34c759', cooldown: 10, isCharging: false },
-      { skillId: 'skill3', icon: '3', color: '#ff9500', cooldown: 30, isCharging: true },
+      { skillId: 'skill1', icon: '1', color: '#4a90d9', cooldown: skillCooldowns.skill1, isCharging: false },
+      { skillId: 'skill2', icon: '2', color: '#34c759', cooldown: skillCooldowns.skill2, isCharging: false },
+      { skillId: 'skill3', icon: '3', color: '#ff9500', cooldown: skillCooldowns.skill3, isCharging: true },
     ];
 
     // 按钮大小已定义，直接使用
@@ -302,32 +450,52 @@ export class BattleScene {
       icon: skillConfigs[2].icon,
       color: skillConfigs[2].color,
       cooldown: skillConfigs[2].cooldown,
-      isCharging: skillConfigs[2].isCharging,
+      // 只有狂战士和肉盾的技能3是蓄力型
+      isCharging: this.playerCharacter.id === CharacterId.BERSERKER || this.playerCharacter.id === CharacterId.TANK,
       onPress: () => {
-        // 按下时开始蓄力
-        if (!this.playerCharacter.isCharging && !skill3Button.isCoolingDown()) {
-          this.playerCharacter.startCharging();
+        // 狂战士：按住蓄力
+        if (this.playerCharacter.id === CharacterId.BERSERKER) {
+          if (!this.playerCharacter.isCharging && !skill3Button.isCoolingDown()) {
+            this.playerCharacter.startCharging();
+          }
         }
       },
       onRelease: () => {
-        // 松开时释放攻击
-        if (this.playerCharacter.isCharging) {
-          this.playerCharacter.releaseCharge();
+        // 狂战士：松开释放蓄力攻击
+        if (this.playerCharacter.id === CharacterId.BERSERKER) {
+          if (this.playerCharacter.isCharging) {
+            this.playerCharacter.releaseCharge();
 
-          // 触发技能冷却（仅在释放时触发）
-          skill3Button.trigger();
+            // 触发技能冷却（仅在释放时触发）
+            skill3Button.trigger();
 
-          // 清除渲染器的蓄力状态
-          this.playerRenderer.setChargeProgress(0);
+            // 清除渲染器的蓄力状态
+            this.playerRenderer.setChargeProgress(0);
+          }
         }
       },
     });
     this.skillButtons.push(skill3Button);
     this.touchManager.addComponent(skill3Button, () => {
-      // 蓄力技能不使用handleSkill，而是通过onPress/onRelease处理
-      if (!skill3Button.isChargingSkill()) {
-        this.handleSkill(skillConfigs[2].skillId);
+      // 双枪连射期间不能使用其他技能
+      if (this.playerCharacter.isRapidFire) {
+        return;
       }
+      // 神枪手：点击开始双枪连射
+      if (this.playerCharacter.id === CharacterId.GUNNER) {
+        if (!skill3Button.isCoolingDown()) {
+          this.executeSkill3();
+          skill3Button.trigger();
+        }
+      }
+      // 肉盾：点击进入装甲模式（待实现）
+      else if (this.playerCharacter.id === CharacterId.TANK) {
+        if (!skill3Button.isCoolingDown()) {
+          this.executeSkill3();
+          skill3Button.trigger();
+        }
+      }
+      // 狂战士的蓄力技能通过onPress/onRelease处理
     });
     
     // 注册攻击按钮触摸事件
@@ -409,6 +577,13 @@ export class BattleScene {
       this.playerRenderer.setChargeProgress(0);
     }
 
+    // 同步双枪连射状态到渲染器
+    this.playerRenderer.setRapidFire(
+      this.playerCharacter.isRapidFire,
+      this.playerCharacter.rapidFireProgress,
+      this.playerCharacter.rapidFireShotsFired
+    );
+
     // 检测蓄力状态变化（用于自动释放时的冷却触发）
     if (this.wasCharging && !this.playerCharacter.isCharging) {
       // 从蓄力变为非蓄力，触发技能3冷却
@@ -422,6 +597,20 @@ export class BattleScene {
     // 更新技能按钮冷却状态
     for (const skillButton of this.skillButtons) {
       skillButton.update();
+    }
+
+    // 更新攻击按钮禁用状态（双枪连射期间禁用）
+    if (this.playerCharacter.id === CharacterId.GUNNER) {
+      this.attackButton.setDisabled(this.playerCharacter.isRapidFire);
+    }
+
+    // 处理神枪手双枪连射
+    if (this.playerCharacter.id === CharacterId.GUNNER && this.playerCharacter.isRapidFire) {
+      if (this.playerCharacter.canFireRapidShot()) {
+        // 发射子弹
+        this.createProjectileForRapidFire();
+        this.playerCharacter.fireRapidShot();
+      }
     }
 
     // 更新投射物

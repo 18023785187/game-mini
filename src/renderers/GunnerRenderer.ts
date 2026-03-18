@@ -15,7 +15,26 @@ export class GunnerRenderer implements ICharacterRenderer {
    * 渲染战斗场景中的神枪手 - 侧身西部牛仔风格
    */
   renderBattle(ctx: CanvasRenderingContext2D, config: CharacterConfig, params: RenderParams): void {
-    const { cx, cy, scale, walkCycle, isMoving } = params;
+    const { cx, cy, scale, walkCycle, isMoving, isRapidFire, rapidFireShotsFired } = params;
+
+    // 双枪连射动画：计算左右手枪的后坐力偏移
+    let leftGunRecoil = 0;
+    let rightGunRecoil = 0;
+    if (isRapidFire) {
+      // 根据已射击次数，交替给左右手枪添加后坐力
+      // 偶数枪（0,2,4...）：右枪后坐力
+      // 奇数枪（1,3,5...）：左枪后坐力
+      const time = Date.now() / 100; // 使用时间来产生动画
+      const recoilIntensity = Math.sin(time * 10) * 0.3; // 后坐力角度
+
+      if (rapidFireShotsFired % 2 === 0) {
+        // 偶数枪，右枪后坐
+        rightGunRecoil = recoilIntensity;
+      } else {
+        // 奇数枪，左枪后坐
+        leftGunRecoil = recoilIntensity;
+      }
+    }
 
     // 腿部动画 - 侧身视图，前后腿分离
     const rightLegAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.2 : 0;
@@ -196,8 +215,8 @@ export class GunnerRenderer implements ICharacterRenderer {
     // 手臂走路摆动角度
     const rightArmAngle = isMoving ? Math.sin(walkCycle) * 0.15 : 0;
 
-    // 手臂旋转 = 走路摆动 + 基础举枪角度(-90度,枪水平)
-    ctx.rotate(rightArmAngle - Math.PI / 2);
+    // 手臂旋转 = 走路摆动 + 基础举枪角度(-90度,枪水平) + 后坐力
+    ctx.rotate(rightArmAngle - Math.PI / 2 + rightGunRecoil);
 
     // 右臂 - 牛仔衬衫袖子
     const rightArmGradient = ctx.createLinearGradient(-4 * scale, 0, 4 * scale, 0);
@@ -239,8 +258,8 @@ export class GunnerRenderer implements ICharacterRenderer {
     // 手臂走路摆动角度
     const leftArmAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.15 : 0;
 
-    // 手臂旋转 = 走路摆动 + 基础举枪角度(90度,枪水平)
-    ctx.rotate(leftArmAngle + Math.PI / 2);
+    // 手臂旋转 = 走路摆动 + 基础举枪角度(90度,枪水平) + 后坐力
+    ctx.rotate(leftArmAngle + Math.PI / 2 + leftGunRecoil);
 
     // 左臂 - 牛仔衬衫袖子
     const armGradient = ctx.createLinearGradient(-4 * scale, 0, 4 * scale, 0);

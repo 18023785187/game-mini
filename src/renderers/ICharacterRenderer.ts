@@ -22,6 +22,9 @@ export interface RenderParams {
   isEnchanted: boolean;      // 是否附魔
   isChargedAttack: boolean;  // 是否蓄力攻击
   chargeProgress: number;    // 蓄力进度 0-1
+  isRapidFire: boolean;      // 是否在双枪连射中
+  rapidFireProgress: number; // 双枪连射进度 0-1
+  rapidFireShotsFired: number; // 已射击次数
 }
 
 /**

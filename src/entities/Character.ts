@@ -78,6 +78,15 @@ export class Character {
   private _dashTargetX: number = 0;           // 冲刺目标X坐标
   private _isInvincible: boolean = false;     // 是否无敌
 
+  // 双枪连射相关（神枪手技能3）
+  private _isRapidFire: boolean = false;       // 是否在双枪连射中
+  private _rapidFireStartTime: number = 0;     // 双枪连射开始时间（毫秒）
+  private _rapidFireDuration: number = 5000;   // 双枪连射持续时间（毫秒）= 5秒
+  private _rapidFireShotsTotal: number = 25;   // 总射击次数 = 5秒 × 5枪/秒
+  private _rapidFireShotsFired: number = 0;    // 已射击次数
+  private _rapidFireLastShotTime: number = 0;  // 上次射击时间（毫秒）
+  private _rapidFireInterval: number = 200;    // 射击间隔（毫秒）= 0.2秒 = 每秒5枪
+
   constructor(characterId: CharacterId) {
     this.id = characterId;
     this.config = CHARACTERS[characterId];
@@ -94,18 +103,24 @@ export class Character {
       this._attackDamage = 10;
       this._attackCooldown = 0.5;
       this._attackRange = 3;
+      // 技能2：冲刺8个单位
+      this._dashDistance = 8 * 60; // 480像素
       break;
     case CharacterId.GUNNER:
       // 神枪手：普通攻击伤害5，冷却1秒，射程10单位
       this._attackDamage = 5;
       this._attackCooldown = 1;
       this._attackRange = 10;
+      // 技能2：快速向前突进4个单位
+      this._dashDistance = 4 * 60; // 240像素
       break;
     case CharacterId.TANK:
       // 肉盾：普通攻击伤害10，冷却0.5秒，射程2单位
       this._attackDamage = 10;
       this._attackCooldown = 0.5;
       this._attackRange = 2;
+      // 技能2：向前冲撞8个单位
+      this._dashDistance = 8 * 60; // 480像素
       break;
     }
   }
@@ -169,6 +184,17 @@ export class Character {
     const elapsed = Date.now() - this._dashStartTime;
     return Math.min(elapsed / this._dashDuration, 1);
   }
+
+  // 双枪连射相关 getters（神枪手技能3）
+  get isRapidFire(): boolean { return this._isRapidFire; }
+  get rapidFireProgress(): number {
+    // 双枪连射进度 0-1，用于UI显示
+    if (!this._isRapidFire) return 0;
+    const elapsed = Date.now() - this._rapidFireStartTime;
+    return Math.min(elapsed / this._rapidFireDuration, 1);
+  }
+  get rapidFireShotsFired(): number { return this._rapidFireShotsFired; }
+  get rapidFireShotsTotal(): number { return this._rapidFireShotsTotal; }
 
   // Setters
   set x(value: number) { this._x = value; }
@@ -356,6 +382,15 @@ export class Character {
         }
       }
     }
+
+    // 更新双枪连射状态
+    if (this._isRapidFire) {
+      const elapsed = Date.now() - this._rapidFireStartTime;
+      // 检查是否超过持续时间或发射完所有子弹
+      if (elapsed >= this._rapidFireDuration || this._rapidFireShotsFired >= this._rapidFireShotsTotal) {
+        this.stopRapidFire();
+      }
+    }
   }
 
   /**
@@ -457,6 +492,63 @@ export class Character {
   }
 
   /**
+   * 开始双枪连射（神枪手技能3）
+   * @returns 是否成功开始双枪连射
+   */
+  startRapidFire(): boolean {
+    // 只有神枪手可以使用双枪连射
+    if (this.id !== CharacterId.GUNNER) return false;
+    // 如果正在蓄力、冲刺或已经在连射中，则不能开始
+    if (this._isCharging || this._isDashing || this._isRapidFire) return false;
+
+    this._isRapidFire = true;
+    this._rapidFireStartTime = Date.now();
+    this._rapidFireShotsFired = 0;
+    this._rapidFireLastShotTime = 0;
+
+    return true;
+  }
+
+  /**
+   * 检查是否可以发射下一枪
+   * @returns 是否可以发射
+   */
+  canFireRapidShot(): boolean {
+    if (!this._isRapidFire) return false;
+
+    const currentTime = Date.now();
+    const elapsed = currentTime - this._rapidFireStartTime;
+
+    // 检查是否已经发射完所有子弹
+    if (this._rapidFireShotsFired >= this._rapidFireShotsTotal) return false;
+
+    // 检查是否超过持续时间
+    if (elapsed >= this._rapidFireDuration) return false;
+
+    // 检查射击间隔
+    const timeSinceLastShot = currentTime - this._rapidFireLastShotTime;
+    return timeSinceLastShot >= this._rapidFireInterval || this._rapidFireShotsFired === 0;
+  }
+
+  /**
+   * 记录发射了一枪
+   */
+  fireRapidShot(): void {
+    if (!this._isRapidFire) return;
+
+    this._rapidFireShotsFired++;
+    this._rapidFireLastShotTime = Date.now();
+  }
+
+  /**
+   * 停止双枪连射
+   */
+  stopRapidFire(): void {
+    this._isRapidFire = false;
+    this._rapidFireShotsFired = 0;
+  }
+
+  /**
    * 重置角色状态
    */
   reset(): void {
@@ -472,9 +564,12 @@ export class Character {
     this._isCharging = false;
     this._isDashing = false;
     this._isInvincible = false;
+    this._isRapidFire = false;
     this._lastAttackTime = 0;
     this._attackStartTime = 0;
     this._chargeStartTime = 0;
     this._dashStartTime = 0;
+    this._rapidFireStartTime = 0;
+    this._rapidFireShotsFired = 0;
   }
 }

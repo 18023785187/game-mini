@@ -27,6 +27,7 @@ export interface AttackButtonState {
   isOnCooldown: boolean;   // 是否在冷却中
   cooldownStartTime: number;// 冷却开始时间
   cooldownDuration: number; // 冷却持续时间（毫秒）
+  isDisabled: boolean;      // 是否被禁用
 }
 
 /**
@@ -51,6 +52,7 @@ export class AttackButton implements TouchableComponent {
       isOnCooldown: false,
       cooldownStartTime: 0,
       cooldownDuration: 500,
+      isDisabled: false,
     };
   }
 
@@ -176,6 +178,41 @@ export class AttackButton implements TouchableComponent {
       }
     }
 
+    // 绘制禁用特效（双枪连射期间）
+    if (this.state.isDisabled) {
+      // 灰色遮罩
+      ctx.fillStyle = 'rgba(50, 50, 50, 0.7)';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 红色边框警告
+      ctx.strokeStyle = 'rgba(255, 50, 50, 0.8)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 禁用图标（X标记）
+      ctx.strokeStyle = 'rgba(255, 100, 100, 0.9)';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      const markSize = radius * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(centerX - markSize, centerY - markSize);
+      ctx.lineTo(centerX + markSize, centerY + markSize);
+      ctx.moveTo(centerX + markSize, centerY - markSize);
+      ctx.lineTo(centerX - markSize, centerY + markSize);
+      ctx.stroke();
+
+      // 闪烁效果
+      const flashAlpha = 0.3 + Math.sin(Date.now() / 150) * 0.2;
+      ctx.fillStyle = `rgba(255, 50, 50, ${flashAlpha})`;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
   }
 
@@ -270,6 +307,20 @@ export class AttackButton implements TouchableComponent {
     }
 
     return true;
+  }
+
+  /**
+   * 设置禁用状态
+   */
+  setDisabled(disabled: boolean): void {
+    this.state.isDisabled = disabled;
+  }
+
+  /**
+   * 是否被禁用
+   */
+  isDisabled(): boolean {
+    return this.state.isDisabled;
   }
 
   /**

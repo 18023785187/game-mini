@@ -23,6 +23,9 @@ export class ProjectileRenderer {
     case ProjectileType.MAGIC_ORB:
       this.renderMagicOrb(ctx, projectile);
       break;
+    case ProjectileType.BOMB:
+      this.renderBomb(ctx, projectile);
+      break;
     }
   }
 
@@ -213,7 +216,7 @@ export class ProjectileRenderer {
     outerGlow.addColorStop(0, config.color);
     outerGlow.addColorStop(0.5, `${config.color}88`);
     outerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    
+
     ctx.fillStyle = outerGlow;
     ctx.beginPath();
     ctx.arc(0, 0, 12 * scale, 0, Math.PI * 2);
@@ -245,5 +248,152 @@ export class ProjectileRenderer {
     }
 
     ctx.restore();
+  }
+
+  /**
+   * 渲染炸弹（神枪手技能1）
+   */
+  private renderBomb(ctx: CanvasRenderingContext2D, projectile: Projectile): void {
+    const config = projectile.config;
+    const scale = config.size / 10;
+
+    // 如果正在爆炸，渲染爆炸效果
+    if (projectile.isExploding) {
+      this.renderExplosion(ctx, projectile, scale);
+      return;
+    }
+
+    // 绘制轨迹
+    this.renderBulletTrail(ctx, projectile);
+
+    // 炸弹主体 - 圆形炸弹
+    const bombRadius = 8 * scale;
+
+    // 外层阴影
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+
+    // 炸弹外壳 - 深灰色金属质感
+    const bombGradient = ctx.createRadialGradient(
+      -bombRadius * 0.3, -bombRadius * 0.3, 0,
+      0, 0, bombRadius
+    );
+    bombGradient.addColorStop(0, '#5a5a5a');
+    bombGradient.addColorStop(0.5, '#3a3a3a');
+    bombGradient.addColorStop(1, '#2a2a2a');
+
+    ctx.fillStyle = bombGradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, bombRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 清除阴影
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // 炸弹高光
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.beginPath();
+    ctx.ellipse(-2 * scale, -3 * scale, 3 * scale, 2 * scale, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 引线
+    ctx.strokeStyle = '#8b4513';
+    ctx.lineWidth = 2 * scale;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, -bombRadius);
+    ctx.quadraticCurveTo(3 * scale, -bombRadius - 5 * scale, 0, -bombRadius - 8 * scale);
+    ctx.stroke();
+
+    // 引线火花（闪烁效果）
+    const sparkTime = Date.now() / 100;
+    const sparkIntensity = Math.sin(sparkTime * 3) * 0.3 + 0.7;
+    ctx.fillStyle = `rgba(255, 150, 50, ${sparkIntensity})`;
+    ctx.beginPath();
+    ctx.arc(0, -bombRadius - 8 * scale, 3 * scale * sparkIntensity, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 火花光芒
+    ctx.strokeStyle = `rgba(255, 200, 100, ${sparkIntensity * 0.8})`;
+    ctx.lineWidth = 1 * scale;
+    for (let i = 0; i < 4; i++) {
+      const angle = (sparkTime + i * Math.PI / 2) % (Math.PI * 2);
+      ctx.beginPath();
+      ctx.moveTo(0, -bombRadius - 8 * scale);
+      ctx.lineTo(
+        Math.cos(angle) * 5 * scale,
+        -bombRadius - 8 * scale + Math.sin(angle) * 5 * scale
+      );
+      ctx.stroke();
+    }
+  }
+
+  /**
+   * 渲染爆炸效果
+   */
+  private renderExplosion(ctx: CanvasRenderingContext2D, projectile: Projectile, scale: number): void {
+    const progress = projectile.explosionProgress;
+    const explosionRadius = projectile.explosionRadius;
+
+    // 爆炸扩展效果
+    const currentRadius = explosionRadius * progress;
+
+    // 外层爆炸光环
+    const outerGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, currentRadius);
+    const alpha = 1 - progress;
+    outerGlow.addColorStop(0, `rgba(255, 200, 50, ${alpha * 0.8})`);
+    outerGlow.addColorStop(0.3, `rgba(255, 150, 0, ${alpha * 0.6})`);
+    outerGlow.addColorStop(0.6, `rgba(255, 100, 0, ${alpha * 0.3})`);
+    outerGlow.addColorStop(1, 'rgba(255, 50, 0, 0)');
+
+    ctx.fillStyle = outerGlow;
+    ctx.beginPath();
+    ctx.arc(0, 0, currentRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 爆炸核心
+    const coreRadius = currentRadius * 0.4;
+    const coreGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, coreRadius);
+    coreGlow.addColorStop(0, `rgba(255, 255, 200, ${alpha})`);
+    coreGlow.addColorStop(0.5, `rgba(255, 200, 100, ${alpha * 0.8})`);
+    coreGlow.addColorStop(1, 'rgba(255, 150, 50, 0)');
+
+    ctx.fillStyle = coreGlow;
+    ctx.beginPath();
+    ctx.arc(0, 0, coreRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 爆炸粒子
+    const particleCount = 12;
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (i / particleCount) * Math.PI * 2;
+      const distance = currentRadius * 0.8;
+      const particleX = Math.cos(angle) * distance;
+      const particleY = Math.sin(angle) * distance;
+      const particleSize = (1 - progress) * 8 * scale;
+
+      ctx.fillStyle = `rgba(255, ${150 + Math.random() * 50}, 50, ${alpha * 0.8})`;
+      ctx.beginPath();
+      ctx.arc(particleX, particleY, particleSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 爆炸烟雾
+    const smokeAlpha = alpha * 0.3;
+    ctx.fillStyle = `rgba(100, 100, 100, ${smokeAlpha})`;
+    for (let i = 0; i < 5; i++) {
+      const smokeAngle = (i / 5) * Math.PI * 2 + progress * 2;
+      const smokeDistance = currentRadius * 0.6;
+      const smokeX = Math.cos(smokeAngle) * smokeDistance;
+      const smokeY = Math.sin(smokeAngle) * smokeDistance;
+      const smokeRadius = (1 - progress) * 15 * scale;
+
+      ctx.beginPath();
+      ctx.arc(smokeX, smokeY, smokeRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
