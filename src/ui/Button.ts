@@ -314,6 +314,10 @@ export class TouchManager {
         }
         break;
       }
+    }
+
+    // 重置所有组件的按下状态
+    for (const component of data.components) {
       component.setPressed(false);
     }
   }
