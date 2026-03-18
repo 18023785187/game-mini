@@ -26,6 +26,7 @@ export class BattleScene {
   // 角色
   private playerCharacter: Character;
   private playerRenderer: CharacterRenderer;
+  private wasCharging: boolean = false; // 上一帧是否在蓄力
 
   // 地图
   private battleMap: BattleMap;
@@ -245,7 +246,7 @@ export class BattleScene {
       onPress: () => {
         // 按下时开始蓄力
         console.log('BattleScene: skill3 onPress被调用, 当前isCharging:', this.playerCharacter.isCharging);
-        if (!this.playerCharacter.isCharging) {
+        if (!this.playerCharacter.isCharging && !skill3Button.isCoolingDown()) {
           this.playerCharacter.startCharging();
           console.log('BattleScene: 开始蓄力成功, isCharging:', this.playerCharacter.isCharging);
         }
@@ -345,6 +346,17 @@ export class BattleScene {
     } else {
       this.playerRenderer.setChargeProgress(0);
     }
+
+    // 检测蓄力状态变化（用于自动释放时的冷却触发）
+    if (this.wasCharging && !this.playerCharacter.isCharging) {
+      // 从蓄力变为非蓄力，触发技能3冷却
+      const skill3Button = this.skillButtons.find(btn => btn.getSkillId() === 'skill3');
+      if (skill3Button && !skill3Button.isCoolingDown()) {
+        skill3Button.trigger();
+        console.log('BattleScene: 自动触发技能3冷却');
+      }
+    }
+    this.wasCharging = this.playerCharacter.isCharging;
 
     // 更新技能按钮冷却状态
     for (const skillButton of this.skillButtons) {
