@@ -102,6 +102,105 @@ export class CharacterRenderer {
     // 蓄力状态：角色微微颤抖，剑发光增强
     const shake = Math.sin(Date.now() / 50) * 2; // 震动效果
     this.drawBattleCharacterBase(config, size, shake, false, 0, -0.5, direction, true, chargeProgress);
+
+    // 蓄力进度环特效
+    this.drawChargingAura(size, chargeProgress);
+  }
+
+  /**
+   * 绘制蓄力光环特效
+   */
+  private drawChargingAura(size: number, chargeProgress: number): void {
+    const ctx = this.ctx;
+    const cx = size * 0.5;
+    const cy = size * 0.5;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // 蓄力进度 0-1，光环颜色从黄色渐变到红色
+    const progress = chargeProgress;
+    const hue = 60 - progress * 60; // 黄色(60) -> 红色(0)
+    const saturation = 100;
+    const lightness = 50 + Math.sin(Date.now() / 100) * 10; // 脉冲效果
+
+    // 内圈光环 - 实心渐变
+    const innerRadius = size * 0.6 + progress * 30;
+    const outerRadius = size * 0.8 + progress * 50;
+
+    const innerGradient = ctx.createRadialGradient(0, 0, innerRadius, 0, 0, outerRadius);
+    innerGradient.addColorStop(0, `hsla(${hue}, ${saturation}%, ${lightness}%, ${0.3 * progress})`);
+    innerGradient.addColorStop(0.5, `hsla(${hue}, ${saturation}%, ${lightness}%, ${0.15 * progress})`);
+    innerGradient.addColorStop(1, `hsla(${hue}, ${saturation}%, ${lightness}%, 0)`);
+
+    ctx.fillStyle = innerGradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, outerRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 外圈光环 - 环形渐变
+    const outerRingRadius = size * 0.9 + progress * 60;
+    const outerRingWidth = 15 + progress * 20;
+
+    const outerGradient = ctx.createRadialGradient(0, 0, outerRingRadius - outerRingWidth, 0, 0, outerRingRadius);
+    outerGradient.addColorStop(0, `hsla(${hue}, ${saturation}%, ${lightness}%, 0)`);
+    outerGradient.addColorStop(0.5, `hsla(${hue}, ${saturation}%, ${lightness}%, ${0.4 * progress})`);
+    outerGradient.addColorStop(1, `hsla(${hue}, ${saturation}%, ${lightness}%, 0)`);
+
+    ctx.fillStyle = outerGradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, outerRingRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 进度条环 - 显示蓄力进度
+    const ringRadius = size * 0.5;
+    const ringWidth = 8;
+    const startAngle = -Math.PI / 2;
+    const endAngle = startAngle + progress * Math.PI * 2;
+
+    // 背景环
+    ctx.strokeStyle = `hsla(${hue}, ${saturation}%, 30%, 0.3)`;
+    ctx.lineWidth = ringWidth;
+    ctx.beginPath();
+    ctx.arc(0, 0, ringRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 进度环 - 带发光效果
+    ctx.shadowColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    ctx.shadowBlur = 15 + progress * 20;
+    ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    ctx.lineWidth = ringWidth;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(0, 0, ringRadius, startAngle, endAngle);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // 能量粒子特效
+    this.drawChargingParticles(progress, hue, saturation, lightness, outerRingRadius);
+
+    ctx.restore();
+  }
+
+  /**
+   * 绘制蓄力粒子特效
+   */
+  private drawChargingParticles(progress: number, hue: number, saturation: number, lightness: number, radius: number): void {
+    const ctx = this.ctx;
+    const particleCount = Math.floor(6 + progress * 6); // 6-12个粒子
+    const time = Date.now() / 500;
+
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (time + i * (Math.PI * 2 / particleCount)) % (Math.PI * 2);
+      const distance = radius * (0.5 + 0.5 * Math.sin(time * 2 + i));
+      const size = 3 + progress * 5;
+      const alpha = 0.6 + Math.sin(time * 3 + i) * 0.4;
+
+      ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha * progress})`;
+      ctx.beginPath();
+      ctx.arc(Math.cos(angle) * distance, Math.sin(angle) * distance, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   /**
