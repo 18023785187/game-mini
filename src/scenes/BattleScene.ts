@@ -165,11 +165,12 @@ export class BattleScene {
   }
 
   /**
-   * 技能2：范围攻击
+   * 技能2：冲刺挥砍
    */
   private executeSkill2(): void {
-    console.log('执行技能2：范围攻击');
-    // 这里可以添加技能2的效果
+    console.log('执行技能2：冲刺挥砍');
+    // 触发冲刺
+    this.playerCharacter.startDash();
   }
 
   /**
@@ -292,8 +293,8 @@ export class BattleScene {
     }
 
     // 更新玩家移动
-    // 攻击时不能移动
-    if (joystickState.isMoving && !this.playerCharacter.isAttacking) {
+    // 攻击时或冲刺时不能移动
+    if (joystickState.isMoving && !this.playerCharacter.isAttacking && !this.playerCharacter.isDashing) {
       const moveAmount = joystickState.direction.x * this.MOVE_SPEED * (deltaTime / 1000);
 
       // 更新位置
@@ -319,8 +320,8 @@ export class BattleScene {
           this.playerCharacter.setState(CharacterState.MOVING);
         }
       }
-    } else if (!this.playerCharacter.isAttacking && !this.playerCharacter.isJumping) {
-      // 不在攻击中也不在跳跃中，设置待机状态
+    } else if (!this.playerCharacter.isAttacking && !this.playerCharacter.isJumping && !this.playerCharacter.isDashing) {
+      // 不在攻击中、跳跃中或冲刺中，设置待机状态
       this.playerCharacter.setState(CharacterState.IDLE);
     }
 
@@ -337,12 +338,12 @@ export class BattleScene {
     this.playerRenderer.setEnchanted(this.playerCharacter.isEnchanted);
 
     // 同步蓄力进度到渲染器
-    // 只有在真正的蓄力状态下才更新进度，攻击状态不清零
-    if (this.playerCharacter.state === CharacterState.CHARGING) {
+    // 使用 isCharging 属性判断，而不是 state（因为跳跃蓄力时 state 是 JUMPING）
+    if (this.playerCharacter.isCharging) {
       const progress = this.playerCharacter.chargeProgress;
       this.playerRenderer.setChargeProgress(progress);
-    } else if (this.playerCharacter.state === CharacterState.ATTACKING && !this.playerCharacter.isCharging) {
-      // 攻击状态且不在蓄力中，保持蓄力进度不变（用于蓄力攻击动画）
+    } else if (this.playerCharacter.isAttacking && this.playerRenderer.getChargeProgress() > 0) {
+      // 攻击状态且有蓄力进度，保持蓄力进度不变（用于蓄力攻击动画）
       // 不做任何操作，保持现有的chargeProgress
     } else {
       // 其他状态清零
@@ -412,11 +413,15 @@ export class BattleScene {
     }
 
     // 根据状态绘制角色
-    if (character.state === CharacterState.CHARGING) {
-      // 蓄力状态，绘制蓄力动画
+    // 注意：跳跃时也可以蓄力和攻击，需要正确处理状态优先级
+    if (character.isCharging) {
+      // 蓄力状态（包括跳跃蓄力），绘制蓄力动画
       this.playerRenderer.drawBattleCharging(config, size, character.direction, this.playerRenderer.getChargeProgress());
-    } else if (character.state === CharacterState.ATTACKING) {
-      // 攻击状态，绘制攻击动画
+    } else if (character.isDashing) {
+      // 冲刺状态，绘制冲刺挥砍动画
+      this.playerRenderer.drawBattleDashing(config, size, character.direction, character.dashProgress);
+    } else if (character.isAttacking) {
+      // 攻击状态（包括跳跃攻击），绘制攻击动画
       const isChargedAttack = this.playerRenderer.getChargeProgress() > 0;
       this.playerRenderer.drawBattleAttacking(config, size, character.direction, character.attackProgress, isChargedAttack);
     } else if (character.state === CharacterState.MOVING || character.isJumping) {

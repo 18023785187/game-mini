@@ -48,9 +48,9 @@ export class CharacterCardRenderer {
     // ===== 卡片背景 =====
     this.drawCardBackground(ctx, config, x, y, cardWidth, cardHeight, isSelected);
 
-    // ===== 角色预览 =====
+    // ===== 角色预览 - 使用战斗场景渲染方法 =====
     const iconSize = Math.min(cardWidth, cardHeight) * 0.45; // 稍微缩小预览尺寸
-    this.characterRenderer.drawPreview(config, x, y - cardHeight * 0.1, iconSize); // 调整位置更高一点
+    this.characterRenderer.drawBattlePreview(config, x, y - cardHeight * 0.1, iconSize); // 复用战斗渲染，确保一致性
 
     // ===== 角色名称 =====
     this.drawCharacterName(ctx, config, x, y, cardWidth, cardHeight);

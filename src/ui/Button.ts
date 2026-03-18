@@ -2,8 +2,8 @@
  * 微信触摸事件类型
  */
 interface WxTouchEvent {
-  touches: Array<{ clientX: number; clientY: number }>;
-  changedTouches: Array<{ clientX: number; clientY: number }>;
+  touches: Array<{ clientX: number; clientY: number; identifier: number }>;
+  changedTouches: Array<{ clientX: number; clientY: number; identifier: number }>;
 }
 
 /**
@@ -168,8 +168,17 @@ export class Button implements TouchableComponent {
 }
 
 /**
+ * 触摸点状态（支持多点触控）
+ */
+interface TouchState {
+  component: TouchableComponent;
+  touchId: number;
+}
+
+/**
  * 触摸事件管理器
  * 支持场景隔离，切换场景时自动清除旧场景的按钮
+ * 支持多点触控，不同触摸点可以同时激活不同组件
  */
 export class TouchManager {
   private currentSceneId: symbol | null = null;
@@ -177,6 +186,8 @@ export class TouchManager {
     components: TouchableComponent[]; 
     callbacks: Map<TouchableComponent, () => void> 
   }> = new Map();
+  // 多点触控状态：每个触摸点对应一个组件
+  private activeTouches: Map<number, TouchState> = new Map();
 
   constructor() {
     this.init();
@@ -211,6 +222,8 @@ export class TouchManager {
         this.sceneComponents.delete(id);
       }
     }
+    // 清除所有活跃的触摸状态
+    this.activeTouches.clear();
     this.currentSceneId = sceneId;
   }
 
@@ -223,6 +236,8 @@ export class TouchManager {
       data.components.forEach(component => component.setPressed(false));
       this.sceneComponents.delete(sceneId);
     }
+    // 清除所有活跃的触摸状态
+    this.activeTouches.clear();
     if (this.currentSceneId === sceneId) {
       this.currentSceneId = null;
     }
@@ -260,10 +275,12 @@ export class TouchManager {
       data.components = [];
       data.callbacks.clear();
     }
+    this.activeTouches.clear();
   }
 
   /**
    * 处理触摸开始
+   * 支持多点触控：每个触摸点独立处理
    */
   private handleTouchStart(e: WxTouchEvent): void {
     if (!this.currentSceneId) return;
@@ -271,22 +288,28 @@ export class TouchManager {
     const data = this.sceneComponents.get(this.currentSceneId);
     if (!data) return;
 
-    const touch = e.touches[0];
-    const point: TouchPoint = { x: touch.clientX, y: touch.clientY };
+    // 处理所有新的触摸点
+    for (const touch of e.touches) {
+      const touchId = touch.identifier;
+      // 跳过已经处理的触摸点
+      if (this.activeTouches.has(touchId)) continue;
 
-    console.log('TouchManager: handleTouchStart, point:', point);
+      const point: TouchPoint = { x: touch.clientX, y: touch.clientY };
 
-    for (const component of data.components) {
-      if (component.containsPoint(point)) {
-        console.log('TouchManager: 找到组件，调用setPressed(true)');
-        component.setPressed(true);
-        break;
+      for (const component of data.components) {
+        if (component.containsPoint(point)) {
+          // 记录这个触摸点对应的组件
+          this.activeTouches.set(touchId, { component, touchId });
+          component.setPressed(true);
+          break;
+        }
       }
     }
   }
 
   /**
    * 处理触摸结束
+   * 支持多点触控：每个触摸点独立处理
    */
   private handleTouchEnd(e: WxTouchEvent): void {
     if (!this.currentSceneId) return;
@@ -294,31 +317,35 @@ export class TouchManager {
     const data = this.sceneComponents.get(this.currentSceneId);
     if (!data) return;
 
-    const touch = e.changedTouches[0];
-    const point: TouchPoint = { x: touch.clientX, y: touch.clientY };
+    // 处理所有结束的触摸点
+    for (const touch of e.changedTouches) {
+      const touchId = touch.identifier;
+      const touchState = this.activeTouches.get(touchId);
 
-    console.log('TouchManager: handleTouchEnd, point:', point);
+      if (touchState) {
+        const { component } = touchState;
+        const callback = data.callbacks.get(component);
 
-    for (const component of data.components) {
-      if (component.containsPoint(point)) {
-        // 检查组件是否有isPressed属性（为了兼容性）
-        const isPressed = component.isPressed !== undefined ?
-          component.isPressed : true;
-
-        console.log('TouchManager: 找到组件，isPressed:', isPressed);
-
-        if (isPressed) {
-          const callback = data.callbacks.get(component);
-          console.log('TouchManager: 调用回调');
-          callback?.();
+        // 触发回调
+        if (callback) {
+          callback();
         }
-        break;
-      }
-    }
 
-    // 重置所有组件的按下状态
-    for (const component of data.components) {
-      component.setPressed(false);
+        // 重置该组件的按下状态（仅当没有其他触摸点按住它时）
+        let hasOtherTouch = false;
+        for (const [id, state] of this.activeTouches) {
+          if (id !== touchId && state.component === component) {
+            hasOtherTouch = true;
+            break;
+          }
+        }
+        if (!hasOtherTouch) {
+          component.setPressed(false);
+        }
+
+        // 移除这个触摸点的状态
+        this.activeTouches.delete(touchId);
+      }
     }
   }
 }

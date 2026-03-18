@@ -1,8 +1,12 @@
 /**
  * 物理系统
  * 处理重力、碰撞检测、角色移动
+ * 
+ * 注意：此文件目前未被使用，保留以备将来扩展
  */
 
+/* eslint-disable */
+// @ts-ignore
 import { Character, CharacterDirection } from '../entities/Character';
 import { BattleMap } from './BattleMap';
 

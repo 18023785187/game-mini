@@ -22,6 +22,7 @@ export enum CharacterState {
   JUMPING = 'jumping',     // 跳跃中
   ATTACKING = 'attacking', // 攻击中
   CHARGING = 'charging',   // 蓄力中（技能3）
+  DASHING = 'dashing',     // 冲刺中（技能2）
 }
 
 /**
@@ -67,6 +68,15 @@ export class Character {
   private _isCharging: boolean = false;     // 是否在蓄力
   private _chargeStartTime: number = 0;     // 蓄力开始时间（毫秒）
   private readonly MAX_CHARGE_TIME = 5000;  // 最大蓄力时间（毫秒）
+
+  // 冲刺相关（技能2）
+  private _isDashing: boolean = false;        // 是否在冲刺中
+  private _dashStartTime: number = 0;         // 冲刺开始时间（毫秒）
+  private _dashDuration: number = 300;        // 冲刺持续时间（毫秒）
+  private _dashDistance: number = 480;        // 冲刺距离（像素）= 8单位 × 60像素/单位
+  private _dashStartX: number = 0;            // 冲刺起始X坐标
+  private _dashTargetX: number = 0;           // 冲刺目标X坐标
+  private _isInvincible: boolean = false;     // 是否无敌
 
   constructor(characterId: CharacterId) {
     this.id = characterId;
@@ -143,11 +153,21 @@ export class Character {
     const baseDamage = 10;
     const bonusDamage = Math.floor(progress * 20); // 0-20点额外伤害
     let damage = baseDamage + bonusDamage;
-    // 如果有附魔，伤害翻倍
-    if (this._isEnchanted) {
+    // 如果有附魔，伤害翻倍（使用 getter 检查附魔是否过期）
+    if (this.isEnchanted) {
       damage = damage * 2;
     }
     return damage;
+  }
+
+  // 冲刺相关 getters
+  get isDashing(): boolean { return this._isDashing; }
+  get isInvincible(): boolean { return this._isInvincible; }
+  get dashProgress(): number {
+    // 冲刺进度 0-1，用于动画插值
+    if (!this._isDashing) return 0;
+    const elapsed = Date.now() - this._dashStartTime;
+    return Math.min(elapsed / this._dashDuration, 1);
   }
 
   // Setters
@@ -203,7 +223,10 @@ export class Character {
     this._isAttacking = true;
     this._attackStartTime = currentTime;
     this._lastAttackTime = currentTime;
-    this._state = CharacterState.ATTACKING;
+    // 只有非跳跃状态才切换到攻击状态，跳跃时保持跳跃状态
+    if (!this._isJumping) {
+      this._state = CharacterState.ATTACKING;
+    }
 
     // 攻击后清除附魔状态
     if (this._isEnchanted) {
@@ -289,7 +312,12 @@ export class Character {
       if (currentTime - this._attackStartTime >= this._attackDuration) {
         // 攻击动画结束
         this._isAttacking = false;
-        this._state = CharacterState.IDLE;
+        // 如果还在跳跃中，保持跳跃状态
+        if (this._isJumping) {
+          this._state = CharacterState.JUMPING;
+        } else {
+          this._state = CharacterState.IDLE;
+        }
       }
     }
 
@@ -299,6 +327,33 @@ export class Character {
       // 达到最大蓄力时间自动攻击
       if (elapsed >= this.MAX_CHARGE_TIME) {
         this.releaseCharge();
+      }
+    }
+
+    // 更新冲刺状态
+    if (this._isDashing) {
+      const elapsed = Date.now() - this._dashStartTime;
+      const progress = Math.min(elapsed / this._dashDuration, 1);
+
+      // 使用缓动函数实现平滑冲刺
+      // easeOutQuad: 快速启动，缓慢结束
+      const easeProgress = 1 - (1 - progress) * (1 - progress);
+
+      // 更新位置
+      this._x = this._dashStartX + (this._dashTargetX - this._dashStartX) * easeProgress;
+
+      // 冲刺结束
+      if (progress >= 1) {
+        this._isDashing = false;
+        this._isInvincible = false;
+        // 确保最终位置准确
+        this._x = this._dashTargetX;
+        // 如果还在跳跃中，保持跳跃状态
+        if (this._isJumping) {
+          this._state = CharacterState.JUMPING;
+        } else {
+          this._state = CharacterState.IDLE;
+        }
       }
     }
   }
@@ -324,12 +379,16 @@ export class Character {
 
   /**
    * 开始蓄力（技能3）
+   * 注意：跳跃时也可以蓄力
    */
   startCharging(): void {
     if (!this._isCharging && !this._isAttacking) {
       this._isCharging = true;
       this._chargeStartTime = Date.now();
-      this._state = CharacterState.CHARGING;
+      // 只有非跳跃状态才切换到蓄力状态，跳跃时保持跳跃状态
+      if (!this._isJumping) {
+        this._state = CharacterState.CHARGING;
+      }
     }
   }
 
@@ -349,7 +408,16 @@ export class Character {
 
     // 停止蓄力
     this._isCharging = false;
-    this._state = CharacterState.ATTACKING;
+    // 只有非跳跃状态才切换到攻击状态，跳跃时保持跳跃状态
+    if (!this._isJumping) {
+      this._state = CharacterState.ATTACKING;
+    }
+
+    // 蓄力攻击后清除附魔状态
+    if (this._isEnchanted) {
+      this._isEnchanted = false;
+      this._attackDamage = this._originalAttackDamage; // 恢复原始伤害
+    }
 
     return damage;
   }
@@ -362,6 +430,30 @@ export class Character {
       this._isCharging = false;
       this._state = CharacterState.IDLE;
     }
+  }
+
+  /**
+   * 开始冲刺（技能2）
+   * @returns 是否成功开始冲刺
+   */
+  startDash(): boolean {
+    if (this._isDashing || this._isCharging) return false;
+
+    this._isDashing = true;
+    this._isInvincible = true;
+    this._dashStartTime = Date.now();
+    this._dashStartX = this._x;
+
+    // 根据朝向计算目标位置
+    const dashDirection = this._direction === CharacterDirection.RIGHT ? 1 : -1;
+    this._dashTargetX = this._x + dashDirection * this._dashDistance;
+
+    // 切换到冲刺状态
+    if (!this._isJumping) {
+      this._state = CharacterState.DASHING;
+    }
+
+    return true;
   }
 
   /**
@@ -378,8 +470,11 @@ export class Character {
     this._isAttacking = false;
     this._isEnchanted = false;
     this._isCharging = false;
+    this._isDashing = false;
+    this._isInvincible = false;
     this._lastAttackTime = 0;
     this._attackStartTime = 0;
     this._chargeStartTime = 0;
+    this._dashStartTime = 0;
   }
 }
