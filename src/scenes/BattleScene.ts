@@ -342,7 +342,9 @@ export class BattleScene {
 
     // 同步蓄力进度到渲染器
     if (this.playerCharacter.isCharging) {
-      this.playerRenderer.setChargeProgress(this.playerCharacter.chargeProgress);
+      const progress = this.playerCharacter.chargeProgress;
+      this.playerRenderer.setChargeProgress(progress);
+      console.log('update: 蓄力中, progress:', progress, 'chargeProgress:', this.playerRenderer.getChargeProgress());
     } else {
       this.playerRenderer.setChargeProgress(0);
     }
@@ -413,6 +415,7 @@ export class BattleScene {
     // 根据状态绘制角色
     if (character.state === CharacterState.CHARGING) {
       // 蓄力状态，绘制蓄力动画
+      console.log('renderCharacter: 绘制蓄力动画, chargeProgress:', this.playerRenderer.getChargeProgress());
       this.playerRenderer.drawBattleCharging(config, size, character.direction, this.playerRenderer.getChargeProgress());
     } else if (character.state === CharacterState.ATTACKING) {
       // 攻击状态，绘制攻击动画
