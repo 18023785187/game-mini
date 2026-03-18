@@ -4,7 +4,7 @@
  */
 
 import { Character, CharacterDirection, CharacterState } from '../entities/Character';
-import { CharacterId, CHARACTERS } from '../types/Character';
+import { CharacterId, CHARACTERS, CharacterType } from '../types/Character';
 import { Joystick } from '../ui/Joystick';
 import { CharacterRenderer } from '../renderers/CharacterRenderer';
 import { gameState, GameState, StateData } from '../core/GameState';
@@ -12,6 +12,8 @@ import { TouchManager, Button } from '../ui/Button';
 import { BattleMap } from '../core/BattleMap';
 import { SkillButton } from '../ui/SkillButton';
 import { AttackButton } from '../ui/AttackButton';
+import { Projectile, ProjectileType, ProjectileConfig } from '../entities/Projectile';
+import { ProjectileRenderer } from '../renderers/ProjectileRenderer';
 
 /**
  * 演示场景
@@ -41,6 +43,11 @@ export class BattleScene {
 
   // 角色移动速度（像素/秒）
   private readonly MOVE_SPEED = 200;
+
+  // 投射物系统
+  private projectiles: Projectile[] = [];
+  private projectileRenderer: ProjectileRenderer;
+  private lastProjectileTime: number = 0; // 上次发射投射物的时间
 
   constructor(
     ctx: CanvasRenderingContext2D,
@@ -76,6 +83,9 @@ export class BattleScene {
 
     // 初始化渲染器
     this.playerRenderer = new CharacterRenderer(ctx);
+    
+    // 初始化投射物渲染器
+    this.projectileRenderer = new ProjectileRenderer();
 
     // 初始化UI控件（摇杆位置）
     const joystickX = 150;
@@ -143,10 +153,59 @@ export class BattleScene {
       console.log(`攻击成功！伤害：${this.playerCharacter.attackDamage}`);
       // 启动按钮冷却
       this.attackButton.startCooldown(this.playerCharacter.attackCooldown * 1000);
+      
+      // 如果是远程角色，创建投射物
+      if (this.playerCharacter.config.type === CharacterType.RANGED) {
+        this.createProjectile();
+      }
+      
       // 攻击成功，攻击动画会自动在renderCharacter中渲染
     } else {
       console.log('攻击冷却中...');
     }
+  }
+
+  /**
+   * 创建投射物（远程角色专用）
+   */
+  private createProjectile(): void {
+    const currentTime = Date.now();
+    
+    // 防止重复创建（攻击动画持续期间只创建一次）
+    if (currentTime - this.lastProjectileTime < 200) {
+      return;
+    }
+    this.lastProjectileTime = currentTime;
+
+    // 计算投射物发射位置（从射击手的枪口位置发射）
+    // 世界坐标系：Y轴向上为正
+    // 角色y是脚底位置，枪口在身体上半部分（约向上45像素）
+    // 向右时从右手枪口发射（向右偏移），向左时从左手枪口发射（向左偏移）
+    const gunOffsetX = this.playerCharacter.direction === CharacterDirection.RIGHT ? 22 : -22;
+    const projectileX = this.playerCharacter.x + gunOffsetX;
+    const projectileY = this.playerCharacter.y + 45; // 从枪口位置发射（向上偏移，因为Y轴向上为正）
+
+    // 创建投射物配置
+    const projectileConfig: ProjectileConfig = {
+      type: ProjectileType.BULLET,
+      damage: this.playerCharacter.attackDamage,
+      speed: 480, // 子弹速度480像素/秒（中等偏快）
+      range: this.playerCharacter.attackRange * 60, // 射程转换为像素
+      size: 20, // 子弹尺寸增大，使其清晰可见
+      color: this.playerCharacter.config.color,
+    };
+
+    // 创建投射物
+    const projectile = new Projectile(
+      projectileX,
+      projectileY,
+      this.playerCharacter.direction,
+      projectileConfig,
+      this.playerCharacter.id
+    );
+
+    this.projectiles.push(projectile);
+    console.log(`创建投射物，位置: (${projectileX}, ${projectileY}), 方向: ${this.playerCharacter.direction}, 速度: ${projectileConfig.speed}`);
   }
 
   /**
@@ -364,6 +423,22 @@ export class BattleScene {
     for (const skillButton of this.skillButtons) {
       skillButton.update();
     }
+
+    // 更新投射物
+    this.updateProjectiles(deltaTime);
+  }
+
+  /**
+   * 更新投射物状态
+   */
+  private updateProjectiles(deltaTime: number): void {
+    // 更新每个投射物
+    for (const projectile of this.projectiles) {
+      projectile.update(deltaTime);
+    }
+
+    // 移除不活跃的投射物
+    this.projectiles = this.projectiles.filter(p => p.isActive);
   }
 
   /**
@@ -377,6 +452,9 @@ export class BattleScene {
 
     // 渲染地图（包括背景、地面、平台、装饰物）
     this.battleMap.render(ctx);
+
+    // 渲染投射物
+    this.renderProjectiles();
 
     // 渲染角色
     this.renderCharacter();
@@ -431,6 +509,26 @@ export class BattleScene {
     }
 
     ctx.restore();
+  }
+
+  /**
+   * 渲染投射物
+   */
+  private renderProjectiles(): void {
+    const ctx = this.ctx;
+
+    for (const projectile of this.projectiles) {
+      // 使用地图系统将世界坐标转换为屏幕坐标
+      const screenPos = this.battleMap.worldToScreen(projectile.x, projectile.y);
+
+      ctx.save();
+      ctx.translate(screenPos.x, screenPos.y);
+
+      // 渲染投射物
+      this.projectileRenderer.render(ctx, projectile);
+
+      ctx.restore();
+    }
   }
 
   /**
@@ -501,5 +599,8 @@ export class BattleScene {
   destroy(): void {
     this.touchManager.destroyScene(this.sceneId);
     this.joystick.destroy();
+    
+    // 清理投射物
+    this.projectiles = [];
   }
 }
