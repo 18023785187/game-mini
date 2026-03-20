@@ -1,6 +1,7 @@
 /**
  * 地图系统
  * 地图宽度100单位，1单位=60px
+ * 角色跳跃高度为3个单位
  */
 
 /**
@@ -21,16 +22,66 @@ export interface MapConfig {
   name: string;
   groundY: number;           // 地面高度（单位）
   platforms: Platform[];     // 平台列表
+  generateRandomPlatforms?: boolean;  // 是否随机生成平台
   background: {
     skyColor: string;        // 天空颜色
     groundColor: string;     // 地面颜色
+    platformColor?: string;  // 平台颜色
     decorations?: {          // 装饰物
-      type: 'cloud' | 'star' | 'moon' | 'sun';
+      type: 'cloud' | 'star' | 'moon' | 'sun' | 'cactus' | 'snowflake' | 'flame';
       x: number;
       y: number;
       size: number;
     }[];
   };
+}
+
+/**
+ * 随机生成平台
+ * 确保玩家能够跳跃到达（高度差不超过3单位）
+ */
+function generateRandomPlatforms(seed?: number): Platform[] {
+  const platforms: Platform[] = [];
+  const usedAreas: { start: number; end: number }[] = [];
+  
+  let currentSeed = seed || Date.now();
+  
+  const random = (max: number): number => {
+    currentSeed = (currentSeed * 9301 + 49297) % 233280;
+    return Math.floor((currentSeed / 233280) * max);
+  };
+  
+  const platformCount = 4 + random(3);
+  
+  for (let i = 0; i < platformCount; i++) {
+    let attempts = 0;
+    let platform: Platform | null = null;
+    
+    while (attempts < 20 && !platform) {
+      const width = 5 + random(6);
+      const x = 10 + random(75);
+      const height = 2 + random(2);
+      const y = 5 + random(15);
+      
+      const overlaps = usedAreas.some(area => 
+        (x >= area.start && x <= area.end) ||
+        (x + width >= area.start && x + width <= area.end) ||
+        (x <= area.start && x + width >= area.end)
+      );
+      
+      if (!overlaps) {
+        platform = { x, y, width, height };
+        usedAreas.push({ start: x - 3, end: x + width + 3 });
+      }
+      attempts++;
+    }
+    
+    if (platform) {
+      platforms.push(platform);
+    }
+  }
+  
+  return platforms.sort((a, b) => a.x - b.x);
 }
 
 /**
@@ -54,20 +105,17 @@ export const MAPS: MapConfig[] = [
       ],
     },
   },
-  // 地图2：台阶 - 月黑风高
+  // 地图2：台阶 - 月黑风高（随机生成台阶）
   {
     id: 'stepped',
     name: '暗夜台阶',
     groundY: 2,
-    platforms: [
-      { x: 15, y: 6, width: 8, height: 2 },
-      { x: 35, y: 10, width: 8, height: 2 },
-      { x: 55, y: 6, width: 8, height: 2 },
-      { x: 75, y: 10, width: 8, height: 2 },
-    ],
+    platforms: [],
+    generateRandomPlatforms: true,
     background: {
       skyColor: '#0a0a1a',
       groundColor: '#1a1a2a',
+      platformColor: '#2a2a3a',
       decorations: [
         { type: 'star', x: 10, y: 90, size: 0.5 },
         { type: 'star', x: 25, y: 85, size: 0.3 },
@@ -75,6 +123,78 @@ export const MAPS: MapConfig[] = [
         { type: 'star', x: 60, y: 88, size: 0.3 },
         { type: 'star', x: 80, y: 90, size: 0.5 },
         { type: 'moon', x: 90, y: 88, size: 1.5 },
+      ],
+    },
+  },
+  // 地图3：沙漠 - 烈日黄沙
+  {
+    id: 'desert',
+    name: '烈日黄沙',
+    groundY: 2,
+    platforms: [
+      { x: 10, y: 5, width: 10, height: 2 },
+      { x: 30, y: 8, width: 8, height: 2 },
+      { x: 50, y: 5, width: 12, height: 2 },
+      { x: 75, y: 10, width: 8, height: 2 },
+    ],
+    background: {
+      skyColor: '#F4A460',
+      groundColor: '#DEB887',
+      platformColor: '#8B4513',
+      decorations: [
+        { type: 'sun', x: 80, y: 90, size: 2.5 },
+        { type: 'cactus', x: 20, y: 4, size: 1 },
+        { type: 'cactus', x: 60, y: 4, size: 0.8 },
+        { type: 'cactus', x: 85, y: 4, size: 1.2 },
+      ],
+    },
+  },
+  // 地图4：冰原 - 极地寒霜
+  {
+    id: 'icefield',
+    name: '极地寒霜',
+    groundY: 2,
+    platforms: [
+      { x: 5, y: 6, width: 12, height: 2 },
+      { x: 25, y: 9, width: 10, height: 2 },
+      { x: 45, y: 6, width: 8, height: 2 },
+      { x: 60, y: 12, width: 10, height: 2 },
+      { x: 82, y: 8, width: 10, height: 2 },
+    ],
+    background: {
+      skyColor: '#E0FFFF',
+      groundColor: '#B0E0E6',
+      platformColor: '#4682B4',
+      decorations: [
+        { type: 'snowflake', x: 15, y: 85, size: 0.8 },
+        { type: 'snowflake', x: 35, y: 90, size: 0.6 },
+        { type: 'snowflake', x: 55, y: 88, size: 0.7 },
+        { type: 'snowflake', x: 75, y: 92, size: 0.5 },
+        { type: 'snowflake', x: 90, y: 87, size: 0.9 },
+      ],
+    },
+  },
+  // 地图5：火山 - 熔岩地狱
+  {
+    id: 'volcano',
+    name: '熔岩地狱',
+    groundY: 2,
+    platforms: [
+      { x: 8, y: 7, width: 10, height: 2 },
+      { x: 28, y: 5, width: 8, height: 2 },
+      { x: 48, y: 10, width: 12, height: 2 },
+      { x: 70, y: 6, width: 8, height: 2 },
+      { x: 85, y: 12, width: 8, height: 2 },
+    ],
+    background: {
+      skyColor: '#2F0000',
+      groundColor: '#4A0000',
+      platformColor: '#3D3D3D',
+      decorations: [
+        { type: 'flame', x: 15, y: 4, size: 1 },
+        { type: 'flame', x: 40, y: 4, size: 0.8 },
+        { type: 'flame', x: 65, y: 4, size: 1.2 },
+        { type: 'flame', x: 90, y: 4, size: 0.9 },
       ],
     },
   },
@@ -91,9 +211,18 @@ export class BattleMap {
   private cameraX: number = 0;    // 摄像机X偏移
 
   constructor(mapId: string, screenWidth: number, screenHeight: number) {
-    this.config = MAPS.find(m => m.id === mapId) || MAPS[0];
+    const baseConfig = MAPS.find(m => m.id === mapId) || MAPS[0];
     this.screenWidth = screenWidth;
     this.screenHeight = screenHeight;
+    
+    if (baseConfig.generateRandomPlatforms) {
+      this.config = {
+        ...baseConfig,
+        platforms: generateRandomPlatforms(),
+      };
+    } else {
+      this.config = baseConfig;
+    }
   }
 
   /**
@@ -234,6 +363,15 @@ export class BattleMap {
       case 'sun':
         this.drawSun(ctx, screenX, screenY, deco.size);
         break;
+      case 'cactus':
+        this.drawCactus(ctx, screenX, screenY, deco.size);
+        break;
+      case 'snowflake':
+        this.drawSnowflake(ctx, screenX, screenY, deco.size);
+        break;
+      case 'flame':
+        this.drawFlame(ctx, screenX, screenY, deco.size);
+        break;
       }
     }
   }
@@ -308,6 +446,87 @@ export class BattleMap {
   }
 
   /**
+   * 绘制仙人掌
+   */
+  private drawCactus(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+    const baseSize = 20 * size;
+    ctx.fillStyle = '#228B22';
+
+    // 主干
+    ctx.fillRect(x - baseSize * 0.3, y - baseSize * 2, baseSize * 0.6, baseSize * 2);
+    
+    // 左分支
+    ctx.fillRect(x - baseSize * 0.8, y - baseSize * 1.5, baseSize * 0.5, baseSize * 0.4);
+    ctx.fillRect(x - baseSize * 0.8, y - baseSize * 1.5, baseSize * 0.4, baseSize * 0.8);
+    
+    // 右分支
+    ctx.fillRect(x + baseSize * 0.3, y - baseSize * 1.2, baseSize * 0.5, baseSize * 0.4);
+    ctx.fillRect(x + baseSize * 0.4, y - baseSize * 1.2, baseSize * 0.4, baseSize * 0.7);
+  }
+
+  /**
+   * 绘制雪花
+   */
+  private drawSnowflake(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+    const r = 15 * size;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    
+    // 六角雪花
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + r * Math.cos(angle), y + r * Math.sin(angle));
+      ctx.stroke();
+      
+      // 分支
+      const branchLen = r * 0.4;
+      const branchX = x + r * 0.6 * Math.cos(angle);
+      const branchY = y + r * 0.6 * Math.sin(angle);
+      ctx.beginPath();
+      ctx.moveTo(branchX, branchY);
+      ctx.lineTo(
+        branchX + branchLen * Math.cos(angle + Math.PI / 4),
+        branchY + branchLen * Math.sin(angle + Math.PI / 4)
+      );
+      ctx.moveTo(branchX, branchY);
+      ctx.lineTo(
+        branchX + branchLen * Math.cos(angle - Math.PI / 4),
+        branchY + branchLen * Math.sin(angle - Math.PI / 4)
+      );
+      ctx.stroke();
+    }
+  }
+
+  /**
+   * 绘制火焰
+   */
+  private drawFlame(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+    const baseSize = 25 * size;
+    
+    // 外层火焰（红色）
+    ctx.fillStyle = '#FF4500';
+    ctx.beginPath();
+    ctx.moveTo(x, y - baseSize * 1.5);
+    ctx.quadraticCurveTo(x + baseSize * 0.8, y - baseSize * 0.8, x + baseSize * 0.5, y);
+    ctx.quadraticCurveTo(x + baseSize * 0.3, y - baseSize * 0.3, x, y - baseSize * 0.5);
+    ctx.quadraticCurveTo(x - baseSize * 0.3, y - baseSize * 0.3, x - baseSize * 0.5, y);
+    ctx.quadraticCurveTo(x - baseSize * 0.8, y - baseSize * 0.8, x, y - baseSize * 1.5);
+    ctx.fill();
+    
+    // 内层火焰（黄色）
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.moveTo(x, y - baseSize * 1.1);
+    ctx.quadraticCurveTo(x + baseSize * 0.4, y - baseSize * 0.5, x + baseSize * 0.25, y - baseSize * 0.1);
+    ctx.quadraticCurveTo(x + baseSize * 0.1, y - baseSize * 0.2, x, y - baseSize * 0.3);
+    ctx.quadraticCurveTo(x - baseSize * 0.1, y - baseSize * 0.2, x - baseSize * 0.25, y - baseSize * 0.1);
+    ctx.quadraticCurveTo(x - baseSize * 0.4, y - baseSize * 0.5, x, y - baseSize * 1.1);
+    ctx.fill();
+  }
+
+  /**
    * 渲染平台
    */
   private renderPlatform(ctx: CanvasRenderingContext2D, platform: Platform): void {
@@ -316,21 +535,24 @@ export class BattleMap {
     const width = platform.width * this.unitSize;
     const height = platform.height * this.unitSize;
 
+    const platformColor = this.config.background.platformColor || '#555555';
+    const darkColor = this.darkenColor(platformColor, 0.2);
+
     // 平台渐变
     const gradient = ctx.createLinearGradient(screenX, screenY, screenX, screenY + height);
-    gradient.addColorStop(0, '#555555');
-    gradient.addColorStop(1, '#333333');
+    gradient.addColorStop(0, platformColor);
+    gradient.addColorStop(1, darkColor);
 
     ctx.fillStyle = gradient;
     ctx.fillRect(screenX, screenY, width, height);
 
     // 平台边框
-    ctx.strokeStyle = '#666666';
+    ctx.strokeStyle = this.darkenColor(platformColor, 0.3);
     ctx.lineWidth = 2;
     ctx.strokeRect(screenX, screenY, width, height);
 
     // 平台顶部高亮
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.fillRect(screenX, screenY, width, 4);
   }
 

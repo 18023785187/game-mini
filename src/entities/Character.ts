@@ -87,6 +87,14 @@ export class Character {
   private _rapidFireLastShotTime: number = 0;  // 上次射击时间（毫秒）
   private _rapidFireInterval: number = 200;    // 射击间隔（毫秒）= 0.2秒 = 每秒5枪
 
+  // 肉盾技能相关
+  private _isShielding: boolean = false;         // 是否举盾防御中（技能1）
+  private _isArmored: boolean = false;            // 是否装甲模式（技能3）
+  private _armorStartTime: number = 0;            // 装甲模式开始时间（毫秒）
+  private _armorDuration: number = 15000;         // 装甲模式持续时间（毫秒）= 15秒
+  private _armorDamageReduction: number = 0.5;    // 装甲模式减伤比例
+  private _shieldDamageReduction: number = 0.7;   // 举盾减伤比例
+
   constructor(characterId: CharacterId) {
     this.id = characterId;
     this.config = CHARACTERS[characterId];
@@ -195,6 +203,27 @@ export class Character {
   }
   get rapidFireShotsFired(): number { return this._rapidFireShotsFired; }
   get rapidFireShotsTotal(): number { return this._rapidFireShotsTotal; }
+
+  // 肉盾技能相关 getters
+  get isShielding(): boolean { return this._isShielding; }
+  get isArmored(): boolean {
+    // 检查装甲模式是否过期
+    if (this._isArmored) {
+      const elapsed = Date.now() - this._armorStartTime;
+      if (elapsed >= this._armorDuration) {
+        this._isArmored = false;
+      }
+    }
+    return this._isArmored;
+  }
+  get armorProgress(): number {
+    // 装甲模式进度 0-1，用于UI显示
+    if (!this._isArmored) return 0;
+    const elapsed = Date.now() - this._armorStartTime;
+    return Math.min(elapsed / this._armorDuration, 1);
+  }
+  get armorDamageReduction(): number { return this._armorDamageReduction; }
+  get shieldDamageReduction(): number { return this._shieldDamageReduction; }
 
   // Setters
   set x(value: number) { this._x = value; }
@@ -549,6 +578,46 @@ export class Character {
   }
 
   /**
+   * 开始举盾防御（肉盾技能1）
+   * 按住举盾，减少70%伤害，不能攻击
+   */
+  startShielding(): void {
+    if (this.id !== CharacterId.TANK) return;
+    this._isShielding = true;
+  }
+
+  /**
+   * 停止举盾防御
+   */
+  stopShielding(): void {
+    this._isShielding = false;
+  }
+
+  /**
+   * 开始装甲模式（肉盾技能3）
+   * 减少50%伤害，普通攻击造成15点伤害，持续15秒
+   * @returns 是否成功开始装甲模式
+   */
+  startArmor(): boolean {
+    if (this.id !== CharacterId.TANK) return false;
+    if (this._isArmored) return false;
+
+    this._isArmored = true;
+    this._armorStartTime = Date.now();
+    this._attackDamage = 15; // 装甲模式下攻击伤害提升到15
+
+    return true;
+  }
+
+  /**
+   * 停止装甲模式
+   */
+  stopArmor(): void {
+    this._isArmored = false;
+    this._attackDamage = 10; // 恢复原始攻击伤害
+  }
+
+  /**
    * 重置角色状态
    */
   reset(): void {
@@ -565,11 +634,16 @@ export class Character {
     this._isDashing = false;
     this._isInvincible = false;
     this._isRapidFire = false;
+    this._isShielding = false;
+    this._isArmored = false;
     this._lastAttackTime = 0;
     this._attackStartTime = 0;
     this._chargeStartTime = 0;
     this._dashStartTime = 0;
     this._rapidFireStartTime = 0;
     this._rapidFireShotsFired = 0;
+    this._armorStartTime = 0;
+    // 重置攻击伤害
+    this.initAttackStats();
   }
 }

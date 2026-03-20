@@ -65,8 +65,10 @@ export class BattleScene {
     this.sceneId = this.touchManager.createScene();
     this.touchManager.switchScene(this.sceneId);
 
-    // 初始化地图（默认使用第一个地图）
-    this.battleMap = new BattleMap('plain', width, height);
+    // 初始化地图（随机选择地图）
+    const mapId = BattleMap.getRandomMapId();
+    this.battleMap = new BattleMap(mapId, width, height);
+    console.log(`随机选择地图: ${this.battleMap.getConfig().name}`);
 
     // 初始化角色
     const playerId = (data?.playerCharacter as CharacterId) || CharacterId.BERSERKER;
@@ -281,9 +283,21 @@ export class BattleScene {
       this.createBomb();
       break;
     case CharacterId.TANK:
-      // 肉盾：按住举起盾牌（待实现）
-      console.log('肉盾：举盾（待实现）');
+      // 肉盾：举盾防御（按住生效，无冷却）
+      console.log('肉盾：举盾防御');
+      this.playerCharacter.startShielding();
+      this.playerRenderer.setShielding(true);
       break;
+    }
+  }
+
+  /**
+   * 停止技能1（用于肉盾举盾）
+   */
+  private stopSkill1(): void {
+    if (this.playerCharacter.id === CharacterId.TANK) {
+      this.playerCharacter.stopShielding();
+      this.playerRenderer.setShielding(false);
     }
   }
 
@@ -338,8 +352,9 @@ export class BattleScene {
       this.playerCharacter.startRapidFire();
       break;
     case CharacterId.TANK:
-      // 肉盾：装甲模式（待实现）
-      console.log('肉盾：装甲模式（待实现）');
+      // 肉盾：装甲模式
+      console.log('肉盾：进入装甲模式');
+      this.playerCharacter.startArmor();
       break;
     case CharacterId.BERSERKER:
       // 狂战士：蓄力攻击（通过onPress/onRelease处理）
@@ -385,7 +400,7 @@ export class BattleScene {
           skill3: 30,
         };
       case CharacterId.TANK:
-        // 肉盾：技能1无冷却，技能2冷却5秒，技能3冷却30秒
+        // 肉盾：技能1无冷却（按住生效），技能2冷却5秒，技能3冷却30秒
         return {
           skill1: 0,
           skill2: 5,
@@ -418,10 +433,26 @@ export class BattleScene {
       icon: skillConfigs[0].icon,
       color: skillConfigs[0].color,
       cooldown: skillConfigs[0].cooldown,
-      isCharging: skillConfigs[0].isCharging,
+      isCharging: this.playerCharacter.id === CharacterId.TANK, // 肉盾的技能1是按住型
+      onPress: () => {
+        // 肉盾：按住举盾防御
+        if (this.playerCharacter.id === CharacterId.TANK) {
+          this.playerCharacter.startShielding();
+          this.playerRenderer.setShielding(true);
+        }
+      },
+      onRelease: () => {
+        // 肉盾：松开停止举盾
+        if (this.playerCharacter.id === CharacterId.TANK) {
+          this.playerCharacter.stopShielding();
+          this.playerRenderer.setShielding(false);
+        }
+      },
     });
     this.skillButtons.push(skill1Button);
     this.touchManager.addComponent(skill1Button, () => {
+      // 肉盾的技能1通过onPress/onRelease处理
+      if (this.playerCharacter.id === CharacterId.TANK) return;
       this.handleSkill(skillConfigs[0].skillId);
     });
     
@@ -459,6 +490,13 @@ export class BattleScene {
             this.playerCharacter.startCharging();
           }
         }
+        // 肉盾：按住进入装甲模式
+        if (this.playerCharacter.id === CharacterId.TANK) {
+          if (!this.playerCharacter.isArmored && !skill3Button.isCoolingDown()) {
+            this.playerCharacter.startArmor();
+            skill3Button.trigger();
+          }
+        }
       },
       onRelease: () => {
         // 狂战士：松开释放蓄力攻击
@@ -488,14 +526,7 @@ export class BattleScene {
           skill3Button.trigger();
         }
       }
-      // 肉盾：点击进入装甲模式（待实现）
-      else if (this.playerCharacter.id === CharacterId.TANK) {
-        if (!skill3Button.isCoolingDown()) {
-          this.executeSkill3();
-          skill3Button.trigger();
-        }
-      }
-      // 狂战士的蓄力技能通过onPress/onRelease处理
+      // 肉盾：点击进入装甲模式（通过onPress处理）
     });
     
     // 注册攻击按钮触摸事件
@@ -583,6 +614,15 @@ export class BattleScene {
       this.playerCharacter.rapidFireProgress,
       this.playerCharacter.rapidFireShotsFired
     );
+
+    // 同步肉盾技能状态到渲染器
+    if (this.playerCharacter.id === CharacterId.TANK) {
+      this.playerRenderer.setShielding(this.playerCharacter.isShielding);
+      this.playerRenderer.setArmored(
+        this.playerCharacter.isArmored,
+        this.playerCharacter.armorProgress
+      );
+    }
 
     // 检测蓄力状态变化（用于自动释放时的冷却触发）
     if (this.wasCharging && !this.playerCharacter.isCharging) {
@@ -760,6 +800,14 @@ export class BattleScene {
 
     const infoX = this.width / 2;
     const infoY = 50;
+
+    // 地图名称
+    const mapConfig = this.battleMap.getConfig();
+    ctx.fillStyle = '#ffcc00';
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`📍 ${mapConfig.name}`, infoX, infoY - 20);
 
     // 角色名称
     ctx.fillStyle = '#ffffff';

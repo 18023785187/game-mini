@@ -78,6 +78,26 @@ export class CharacterRenderer {
     this.rapidFireShotsFired = shotsFired;
   }
 
+  // 肉盾技能状态
+  private isShielding: boolean = false;      // 是否举盾防御中
+  private isArmored: boolean = false;        // 是否装甲模式
+  private armorProgress: number = 0;         // 装甲模式进度 0-1
+
+  /**
+   * 设置举盾状态
+   */
+  setShielding(isShielding: boolean): void {
+    this.isShielding = isShielding;
+  }
+
+  /**
+   * 设置装甲模式状态
+   */
+  setArmored(isArmored: boolean, progress: number = 0): void {
+    this.isArmored = isArmored;
+    this.armorProgress = progress;
+  }
+
   /**
    * 获取双枪连射状态
    */
@@ -363,6 +383,10 @@ export class CharacterRenderer {
       isRapidFire: this.isRapidFire,
       rapidFireProgress: this.rapidFireProgress,
       rapidFireShotsFired: this.rapidFireShotsFired,
+      // 肉盾技能状态
+      isShielding: this.isShielding,
+      isArmored: this.isArmored,
+      armorProgress: this.armorProgress,
     };
 
     // 获取对应角色的渲染器

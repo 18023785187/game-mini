@@ -1,700 +1,853 @@
 /**
  * 神枪手渲染器
  * 负责绘制神枪手角色形象
- * 西部牛仔风格，侧身双枪
+ * 炫酷西部牛仔风格 - 赏金猎人
  */
 
 import { CharacterConfig } from '../types/Character';
 import { RenderParams, PreviewRenderParams, ICharacterRenderer } from './ICharacterRenderer';
 
-/**
- * 神枪手渲染器
- */
 export class GunnerRenderer implements ICharacterRenderer {
-  /**
-   * 渲染战斗场景中的神枪手 - 侧身西部牛仔风格
-   */
   renderBattle(ctx: CanvasRenderingContext2D, config: CharacterConfig, params: RenderParams): void {
-    const { cx, cy, scale, walkCycle, isMoving, isRapidFire, rapidFireShotsFired } = params;
+    const { cx, cy, scale, walkCycle, isMoving, attackProgress, isRapidFire, rapidFireShotsFired, rapidFireProgress } = params;
 
-    // 双枪连射动画：计算左右手枪的后坐力偏移
+    const time = Date.now() / 1000;
+    
     let leftGunRecoil = 0;
     let rightGunRecoil = 0;
     if (isRapidFire) {
-      // 根据已射击次数，交替给左右手枪添加后坐力
-      // 偶数枪（0,2,4...）：右枪后坐力
-      // 奇数枪（1,3,5...）：左枪后坐力
-      const time = Date.now() / 100; // 使用时间来产生动画
-      const recoilIntensity = Math.sin(time * 10) * 0.3; // 后坐力角度
-
+      const recoilIntensity = Math.sin(time * 15) * 0.4;
       if (rapidFireShotsFired % 2 === 0) {
-        // 偶数枪，右枪后坐
         rightGunRecoil = recoilIntensity;
       } else {
-        // 奇数枪，左枪后坐
         leftGunRecoil = recoilIntensity;
       }
     }
 
-    // 腿部动画 - 侧身视图，前后腿分离
-    const rightLegAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.2 : 0;
-    const leftLegAngle = isMoving ? Math.sin(walkCycle) * 0.2 : 0;
+    // 双枪连射特效
+    if (isRapidFire) {
+      this.drawRapidFireEffect(ctx, cx, cy, scale, rapidFireProgress, time);
+    }
 
-    // 后腿（左腿）- 牛仔靴
+    // 攻击时枪口火焰
+    const showMuzzleFlash = attackProgress > 0.1 && attackProgress < 0.5;
+
+    // 斗篷 - 更大更飘逸
     ctx.save();
-    ctx.translate(cx - 5 * scale, cy + 28 * scale);
+    const capeWave = isMoving ? Math.sin(walkCycle) * 0.25 : Math.sin(time * 2) * 0.15;
+    ctx.translate(cx - 12 * scale, cy - 15 * scale);
+    ctx.rotate(capeWave - 0.2);
+    
+    const capeGradient = ctx.createLinearGradient(0, 0, -40 * scale, 70 * scale);
+    capeGradient.addColorStop(0, '#8B0000');
+    capeGradient.addColorStop(0.3, '#6B0000');
+    capeGradient.addColorStop(0.7, '#4B0000');
+    capeGradient.addColorStop(1, '#2B0000');
+    
+    ctx.fillStyle = capeGradient;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-15 * scale, 10 * scale, -35 * scale, 25 * scale, -40 * scale, 45 * scale);
+    ctx.bezierCurveTo(-42 * scale, 60 * scale, -38 * scale, 75 * scale, -30 * scale, 85 * scale);
+    ctx.lineTo(-20 * scale, 80 * scale);
+    ctx.bezierCurveTo(-10 * scale, 65 * scale, -5 * scale, 45 * scale, 0, 25 * scale);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.strokeStyle = '#A00000';
+    ctx.lineWidth = 2 * scale;
+    ctx.stroke();
+    
+    ctx.strokeStyle = 'rgba(139, 0, 0, 0.3)';
+    ctx.lineWidth = 1 * scale;
+    for (let i = 0; i < 5; i++) {
+      const y = 15 * scale + i * 12 * scale;
+      ctx.beginPath();
+      ctx.moveTo(-5 * scale, y);
+      ctx.quadraticCurveTo(-20 * scale, y + 8 * scale, -30 * scale, y + 15 * scale);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 腿部
+    const rightLegAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.25 : 0;
+    const leftLegAngle = isMoving ? Math.sin(walkCycle) * 0.25 : 0;
+
+    // 后腿（左腿）
+    ctx.save();
+    ctx.translate(cx - 6 * scale, cy + 28 * scale);
     ctx.rotate(leftLegAngle);
     
-    const backLegGradient = ctx.createLinearGradient(-5 * scale, 0, 5 * scale, 0);
+    const backLegGradient = ctx.createLinearGradient(-6 * scale, 0, 6 * scale, 0);
     backLegGradient.addColorStop(0, '#1a1510');
     backLegGradient.addColorStop(0.5, '#2a2520');
     backLegGradient.addColorStop(1, '#1a1510');
     ctx.fillStyle = backLegGradient;
     
-    // 牛仔裤
     ctx.beginPath();
-    ctx.ellipse(0, -5 * scale, 5 * scale, 12 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -5 * scale, 6 * scale, 14 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillRect(-4 * scale, 6 * scale, 8 * scale, 15 * scale);
+    ctx.fillRect(-5 * scale, 8 * scale, 10 * scale, 18 * scale);
     
-    // 牛仔靴 - 棕色皮革
-    ctx.fillStyle = '#5a3a20';
+    // 蛇皮牛仔靴
+    const bootGradient = ctx.createLinearGradient(-5 * scale, 25 * scale, 5 * scale, 35 * scale);
+    bootGradient.addColorStop(0, '#8B4513');
+    bootGradient.addColorStop(0.3, '#A0522D');
+    bootGradient.addColorStop(0.6, '#8B4513');
+    bootGradient.addColorStop(1, '#654321');
+    ctx.fillStyle = bootGradient;
     ctx.beginPath();
-    ctx.moveTo(-4 * scale, 21 * scale);
-    ctx.lineTo(5 * scale, 21 * scale);
-    ctx.lineTo(7 * scale, 28 * scale);
-    ctx.lineTo(-2 * scale, 28 * scale);
-    ctx.lineTo(-4 * scale, 21 * scale);
+    ctx.moveTo(-5 * scale, 25 * scale);
+    ctx.lineTo(6 * scale, 25 * scale);
+    ctx.lineTo(10 * scale, 35 * scale);
+    ctx.lineTo(-3 * scale, 35 * scale);
+    ctx.closePath();
     ctx.fill();
     
-    // 靴子跟部高光
-    ctx.fillStyle = '#7a5a40';
-    ctx.fillRect(0, 21 * scale, 5 * scale, 3 * scale);
+    // 靴子蛇纹
+    ctx.strokeStyle = '#654321';
+    ctx.lineWidth = 0.8 * scale;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.arc(-1 * scale + i * 2 * scale, 28 * scale, 1.5 * scale, 0, Math.PI);
+      ctx.stroke();
+    }
+    
+    // 马刺
+    ctx.fillStyle = '#C0C0C0';
+    ctx.beginPath();
+    ctx.arc(8 * scale, 32 * scale, 2 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#A0A0A0';
+    ctx.lineWidth = 1 * scale;
+    ctx.beginPath();
+    ctx.moveTo(8 * scale, 30 * scale);
+    ctx.lineTo(8 * scale, 34 * scale);
+    ctx.stroke();
     ctx.restore();
 
-    // 前腿（右腿）- 更亮
+    // 前腿（右腿）
     ctx.save();
-    ctx.translate(cx + 5 * scale, cy + 28 * scale);
+    ctx.translate(cx + 6 * scale, cy + 28 * scale);
     ctx.rotate(rightLegAngle);
     
-    const frontLegGradient = ctx.createLinearGradient(-5 * scale, 0, 5 * scale, 0);
+    const frontLegGradient = ctx.createLinearGradient(-6 * scale, 0, 6 * scale, 0);
     frontLegGradient.addColorStop(0, '#2a2520');
     frontLegGradient.addColorStop(0.5, '#3a3530');
     frontLegGradient.addColorStop(1, '#2a2520');
     ctx.fillStyle = frontLegGradient;
     
-    // 牛仔裤
     ctx.beginPath();
-    ctx.ellipse(0, -5 * scale, 5 * scale, 12 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -5 * scale, 6 * scale, 14 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillRect(-4 * scale, 6 * scale, 8 * scale, 15 * scale);
+    ctx.fillRect(-5 * scale, 8 * scale, 10 * scale, 18 * scale);
     
-    // 牛仔靴
-    ctx.fillStyle = '#6a4a30';
+    // 蛇皮牛仔靴
+    const frontBootGradient = ctx.createLinearGradient(-5 * scale, 25 * scale, 5 * scale, 35 * scale);
+    frontBootGradient.addColorStop(0, '#A0522D');
+    frontBootGradient.addColorStop(0.3, '#B8860B');
+    frontBootGradient.addColorStop(0.6, '#A0522D');
+    frontBootGradient.addColorStop(1, '#8B4513');
+    ctx.fillStyle = frontBootGradient;
     ctx.beginPath();
-    ctx.moveTo(-4 * scale, 21 * scale);
-    ctx.lineTo(5 * scale, 21 * scale);
-    ctx.lineTo(7 * scale, 28 * scale);
-    ctx.lineTo(-2 * scale, 28 * scale);
-    ctx.lineTo(-4 * scale, 21 * scale);
-    ctx.fill();
-    
-    // 靴子装饰
-    ctx.fillStyle = '#8a6a50';
-    ctx.fillRect(0, 21 * scale, 5 * scale, 3 * scale);
-    ctx.restore();
-
-    // 披风 - 西部牛仔风格，从肩膀向后飘动
-    ctx.save();
-    const capeWave = isMoving ? Math.sin(walkCycle) * 0.2 : Math.sin(Date.now() / 1000) * 0.1; // 飘动效果
-    ctx.translate(cx - 8 * scale, cy - 18 * scale); // 从左肩位置开始
-    ctx.rotate(capeWave - 0.15); // 向后倾斜
-    
-    // 披风主体 - 深棕色皮革
-    const capeGradient = ctx.createLinearGradient(0, 0, -30 * scale, 50 * scale);
-    capeGradient.addColorStop(0, '#4a3020');
-    capeGradient.addColorStop(0.3, '#3a2515');
-    capeGradient.addColorStop(0.7, '#2a1a0a');
-    capeGradient.addColorStop(1, '#1a1005');
-    
-    ctx.fillStyle = capeGradient;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(-8 * scale, 5 * scale);
-    ctx.quadraticCurveTo(-25 * scale, 15 * scale + (isMoving ? Math.sin(walkCycle) * 10 * scale : 0), 
-      -28 * scale, 35 * scale + (isMoving ? Math.cos(walkCycle) * 8 * scale : 0));
-    ctx.quadraticCurveTo(-30 * scale, 50 * scale, -25 * scale, 60 * scale + (isMoving ? Math.sin(walkCycle + 1) * 5 * scale : 0));
-    ctx.lineTo(-20 * scale, 55 * scale);
-    ctx.quadraticCurveTo(-15 * scale, 45 * scale, -12 * scale, 35 * scale);
-    ctx.lineTo(-8 * scale, 20 * scale);
-    ctx.lineTo(0, 8 * scale);
+    ctx.moveTo(-5 * scale, 25 * scale);
+    ctx.lineTo(6 * scale, 25 * scale);
+    ctx.lineTo(10 * scale, 35 * scale);
+    ctx.lineTo(-3 * scale, 35 * scale);
     ctx.closePath();
     ctx.fill();
     
-    // 披风边缘装饰 - 皮革边缘
-    ctx.strokeStyle = '#5a4030';
-    ctx.lineWidth = 2 * scale;
-    ctx.stroke();
-    
-    // 披风纹理 - 褶皱纹理
-    ctx.strokeStyle = '#3a2515';
-    ctx.lineWidth = 1 * scale;
-    ctx.globalAlpha = 0.5;
-    for (let i = 0; i < 4; i++) {
-      const y = 10 * scale + i * 10 * scale;
+    ctx.strokeStyle = '#8B4513';
+    ctx.lineWidth = 0.8 * scale;
+    for (let i = 0; i < 3; i++) {
       ctx.beginPath();
-      ctx.moveTo(-5 * scale, y);
-      ctx.quadraticCurveTo(-15 * scale, y + 5 * scale, -20 * scale, y + 8 * scale);
+      ctx.arc(-1 * scale + i * 2 * scale, 28 * scale, 1.5 * scale, 0, Math.PI);
       ctx.stroke();
     }
-    ctx.globalAlpha = 1;
     
-    // 披风扣子 - 连接肩膀的扣子
-    ctx.fillStyle = '#8a7a60';
+    ctx.fillStyle = '#D4AF37';
     ctx.beginPath();
-    ctx.arc(0, 2 * scale, 2 * scale, 0, Math.PI * 2);
+    ctx.arc(8 * scale, 32 * scale, 2 * scale, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#aaa';
+    ctx.strokeStyle = '#B8860B';
+    ctx.lineWidth = 1 * scale;
     ctx.beginPath();
-    ctx.arc(-0.5 * scale, 1.5 * scale, 0.8 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    
+    ctx.moveTo(8 * scale, 30 * scale);
+    ctx.lineTo(8 * scale, 34 * scale);
+    ctx.stroke();
     ctx.restore();
 
-    // 身体 - 侧身视图
-    const bodyGradient = ctx.createRadialGradient(cx - 3 * scale, cy - 5 * scale, 0, cx, cy, 22 * scale);
+    // 身体
+    const bodyGradient = ctx.createRadialGradient(cx - 2 * scale, cy - 5 * scale, 0, cx, cy, 25 * scale);
     bodyGradient.addColorStop(0, '#4a4540');
     bodyGradient.addColorStop(0.5, config.color);
     bodyGradient.addColorStop(1, '#2a2520');
     ctx.fillStyle = bodyGradient;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, 16 * scale, 26 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, 18 * scale, 28 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 牛仔马甲
-    ctx.fillStyle = '#3a2520';
+    // 皮夹克
+    const jacketGradient = ctx.createLinearGradient(cx - 18 * scale, 0, cx + 18 * scale, 0);
+    jacketGradient.addColorStop(0, '#2a1a10');
+    jacketGradient.addColorStop(0.2, '#3a2a20');
+    jacketGradient.addColorStop(0.5, '#4a3a30');
+    jacketGradient.addColorStop(0.8, '#3a2a20');
+    jacketGradient.addColorStop(1, '#2a1a10');
+    ctx.fillStyle = jacketGradient;
     ctx.beginPath();
-    ctx.moveTo(cx - 12 * scale, cy - 20 * scale);
-    ctx.lineTo(cx + 10 * scale, cy - 20 * scale);
-    ctx.lineTo(cx + 8 * scale, cy + 20 * scale);
-    ctx.lineTo(cx, cy + 22 * scale);
-    ctx.lineTo(cx - 10 * scale, cy + 18 * scale);
+    ctx.moveTo(cx - 16 * scale, cy - 22 * scale);
+    ctx.lineTo(cx + 14 * scale, cy - 22 * scale);
+    ctx.lineTo(cx + 12 * scale, cy + 22 * scale);
+    ctx.lineTo(cx, cy + 25 * scale);
+    ctx.lineTo(cx - 14 * scale, cy + 20 * scale);
     ctx.closePath();
     ctx.fill();
     
-    // 马甲装饰 - 银色扣子
-    ctx.fillStyle = '#8a8a8a';
-    for (let i = 0; i < 3; i++) {
-      ctx.beginPath();
-      ctx.arc(cx, cy - 12 * scale + i * 10 * scale, 1.5 * scale, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    
-    // 马甲边缘装饰
     ctx.strokeStyle = '#5a4a40';
     ctx.lineWidth = 1.5 * scale;
-    ctx.beginPath();
-    ctx.moveTo(cx - 8 * scale, cy - 18 * scale);
-    ctx.lineTo(cx - 6 * scale, cy + 16 * scale);
     ctx.stroke();
 
-    // 披风 - 牛仔围巾（系在脖子上）
-    ctx.fillStyle = '#5a2a20';
+    // 夹克拉链
+    ctx.strokeStyle = '#C0C0C0';
+    ctx.lineWidth = 1.5 * scale;
     ctx.beginPath();
-    ctx.moveTo(cx - 8 * scale, cy - 22 * scale);
-    ctx.quadraticCurveTo(cx + 5 * scale, cy - 20 * scale, cx + 8 * scale, cy - 22 * scale);
-    ctx.lineTo(cx + 5 * scale, cy - 15 * scale);
-    ctx.lineTo(cx - 5 * scale, cy - 15 * scale);
-    ctx.closePath();
-    ctx.fill();
-
-    // 前手（右手）持枪 - 左轮手枪
-    ctx.save();
-    ctx.translate(cx + 22 * scale, cy + 2 * scale);
-
-    // 手臂走路摆动角度
-    const rightArmAngle = isMoving ? Math.sin(walkCycle) * 0.15 : 0;
-
-    // 手臂旋转 = 走路摆动 + 基础举枪角度(-90度,枪水平) + 后坐力
-    ctx.rotate(rightArmAngle - Math.PI / 2 + rightGunRecoil);
-
-    // 右臂 - 牛仔衬衫袖子
-    const rightArmGradient = ctx.createLinearGradient(-4 * scale, 0, 4 * scale, 0);
-    rightArmGradient.addColorStop(0, '#3a3530');
-    rightArmGradient.addColorStop(0.5, '#4a4540');
-    rightArmGradient.addColorStop(1, '#3a3530');
-    ctx.fillStyle = rightArmGradient;
-    ctx.beginPath();
-    ctx.ellipse(0, -3 * scale, 5 * scale, 11 * scale, -0.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 手（简化手掌）
-    ctx.save();
-    ctx.translate(0, 8 * scale);
-    ctx.fillStyle = '#ddaa88';
-    // 手掌
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 4 * scale, 4 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // 手指（简化）
-    ctx.fillRect(-1 * scale, -4 * scale, 1 * scale, 3 * scale);  // 拇指
-    ctx.fillRect(0 * scale, -5 * scale, 1 * scale, 4 * scale);   // 食指
-    ctx.fillRect(1 * scale, -5 * scale, 1 * scale, 4 * scale);   // 中指
-    ctx.restore();
-
-    // 枪（始终完整绘制）
-    ctx.save();
-    ctx.translate(0, 15 * scale);
-    // 枪的枪口向上(y=-20),右手枪旋转180度(枪口朝右)
-    this.drawRevolver(ctx, 0, 0, scale, Math.PI);
-    ctx.restore();
-
-    ctx.restore();
-
-    // 后手（左手）持枪 - 左轮手枪
-    ctx.save();
-    ctx.translate(cx - 8 * scale, cy + 2 * scale);
-
-    // 手臂走路摆动角度
-    const leftArmAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.15 : 0;
-
-    // 手臂旋转 = 走路摆动 + 基础举枪角度(90度,枪水平) + 后坐力
-    ctx.rotate(leftArmAngle + Math.PI / 2 + leftGunRecoil);
-
-    // 左臂 - 牛仔衬衫袖子
-    const armGradient = ctx.createLinearGradient(-4 * scale, 0, 4 * scale, 0);
-    armGradient.addColorStop(0, '#3a3530');
-    armGradient.addColorStop(0.5, '#4a4540');
-    armGradient.addColorStop(1, '#3a3530');
-    ctx.fillStyle = armGradient;
-    ctx.beginPath();
-    ctx.ellipse(0, -3 * scale, 5 * scale, 11 * scale, 0.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 手（简化手掌）
-    ctx.save();
-    ctx.translate(0, 8 * scale);
-    ctx.fillStyle = '#ddaa88';
-    // 手掌
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 4 * scale, 4 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // 手指（简化）
-    ctx.fillRect(-1 * scale, -4 * scale, 1 * scale, 3 * scale);  // 拇指
-    ctx.fillRect(0 * scale, -5 * scale, 1 * scale, 4 * scale);   // 食指
-    ctx.fillRect(1 * scale, -5 * scale, 1 * scale, 4 * scale);   // 中指
-    ctx.restore();
-
-    // 枪（始终完整绘制）
-    ctx.save();
-    ctx.translate(0, 15 * scale);
-    // 枪的枪口向上(y=-20),左手枪不旋转(枪口朝左)
-    this.drawRevolver(ctx, 0, 0, scale, 0);
-    ctx.restore();
-
-    ctx.restore();
-
-    // 头部 - 侧脸效果
-    const headGradient = ctx.createRadialGradient(cx + 3 * scale, cy - 38 * scale, 0, cx, cy - 35 * scale, 11 * scale);
-    headGradient.addColorStop(0, '#eec090');
-    headGradient.addColorStop(1, '#cc8866');
-    ctx.fillStyle = headGradient;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy - 35 * scale, 10 * scale, 13 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 牛仔帽 - 经典宽边帽
-    ctx.save();
-    ctx.translate(cx, cy - 48 * scale);
-    
-    // 帽顶
-    const hatGradient = ctx.createLinearGradient(-8 * scale, -10 * scale, 8 * scale, 0);
-    hatGradient.addColorStop(0, '#3a2a20');
-    hatGradient.addColorStop(0.5, '#4a3a30');
-    hatGradient.addColorStop(1, '#2a1a10');
-    ctx.fillStyle = hatGradient;
-    
-    ctx.beginPath();
-    ctx.ellipse(0, -5 * scale, 8 * scale, 10 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 帽檐 - 宽边
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 18 * scale, 5 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 帽带装饰
-    ctx.strokeStyle = '#5a4a40';
-    ctx.lineWidth = 2 * scale;
-    ctx.beginPath();
-    ctx.ellipse(0, -5 * scale, 8 * scale, 10 * scale, 0, Math.PI * 0.8, Math.PI * 1.2);
+    ctx.moveTo(cx - 2 * scale, cy - 20 * scale);
+    ctx.lineTo(cx - 2 * scale, cy + 20 * scale);
     ctx.stroke();
     
-    // 帽子金属装饰
-    ctx.fillStyle = '#8a7a60';
-    ctx.beginPath();
-    ctx.arc(0, -12 * scale, 2 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    // 拉链齿
+    ctx.fillStyle = '#A0A0A0';
+    for (let i = 0; i < 8; i++) {
+      ctx.fillRect(cx - 3 * scale, cy - 18 * scale + i * 5 * scale, 2 * scale, 2 * scale);
+    }
 
-    // 眼睛 - 侧脸只显示右眼
-    ctx.fillStyle = '#5a4a3a';
-    ctx.beginPath();
-    ctx.ellipse(cx + 4 * scale, cy - 36 * scale, 2 * scale, 2.5 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 眼白
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.ellipse(cx + 4 * scale, cy - 36 * scale, 1.2 * scale, 1.5 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 瞳孔
-    ctx.fillStyle = '#2a2a2a';
-    ctx.beginPath();
-    ctx.arc(cx + 4.5 * scale, cy - 36 * scale, 0.8 * scale, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 眉毛 - 粗犷风格
-    ctx.strokeStyle = '#3a2a1a';
-    ctx.lineWidth = 2 * scale;
-    ctx.beginPath();
-    ctx.moveTo(cx + 2 * scale, cy - 40 * scale);
-    ctx.lineTo(cx + 6 * scale, cy - 38 * scale);
-    ctx.stroke();
-
-    // 下巴胡茬
-    ctx.fillStyle = '#5a4a3a';
-    ctx.globalAlpha = 0.4;
-    ctx.beginPath();
-    ctx.ellipse(cx + 5 * scale, cy - 24 * scale, 4 * scale, 3 * scale, 0.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-
-  /**
-   * 绘制左轮手枪
-   */
-  private drawRevolver(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, angle: number): void {
+    // 子弹带（斜跨）
     ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-
-    // 枪管（长枪管）
-    const barrelGradient = ctx.createLinearGradient(-2 * scale, -20 * scale, 2 * scale, 5 * scale);
-    barrelGradient.addColorStop(0, '#7a7a7a');
-    barrelGradient.addColorStop(0.5, '#9a9a9a');
-    barrelGradient.addColorStop(1, '#5a5a5a');
-    ctx.fillStyle = barrelGradient;
-    ctx.fillRect(-2 * scale, -20 * scale, 4 * scale, 22 * scale);
-
-    // 枪身主体
-    const bodyGradient = ctx.createLinearGradient(-5 * scale, 0, 5 * scale, 0);
-    bodyGradient.addColorStop(0, '#6a6a6a');
-    bodyGradient.addColorStop(0.5, '#8a8a8a');
-    bodyGradient.addColorStop(1, '#5a5a5a');
-    ctx.fillStyle = bodyGradient;
+    ctx.translate(cx, cy - 15 * scale);
+    ctx.rotate(0.15);
+    
+    ctx.strokeStyle = '#8B4513';
+    ctx.lineWidth = 4 * scale;
     ctx.beginPath();
-    ctx.moveTo(-5 * scale, 2 * scale);
-    ctx.lineTo(5 * scale, 2 * scale);
-    ctx.lineTo(5 * scale, 8 * scale);
-    ctx.lineTo(-5 * scale, 8 * scale);
-    ctx.closePath();
-    ctx.fill();
-
-    // 握把（木质）
-    const gripGradient = ctx.createLinearGradient(-4 * scale, 0, 4 * scale, 0);
-    gripGradient.addColorStop(0, '#5a3a20');
-    gripGradient.addColorStop(0.5, '#7a5a40');
-    gripGradient.addColorStop(1, '#5a3a20');
-    ctx.fillStyle = gripGradient;
-    ctx.beginPath();
-    ctx.moveTo(-4 * scale, 8 * scale);
-    ctx.lineTo(4 * scale, 8 * scale);
-    ctx.lineTo(3 * scale, 18 * scale);
-    ctx.lineTo(-3 * scale, 18 * scale);
-    ctx.closePath();
-    ctx.fill();
-
-    // 转轮（左侧圆柱形）
-    ctx.fillStyle = '#4a4a4a';
-    ctx.beginPath();
-    ctx.ellipse(-6 * scale, 5 * scale, 3 * scale, 5 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 转轮弹孔（6个）
-    ctx.fillStyle = '#2a2a2a';
+    ctx.moveTo(-18 * scale, -5 * scale);
+    ctx.lineTo(15 * scale, 30 * scale);
+    ctx.stroke();
+    
+    // 子弹
+    ctx.fillStyle = '#D4AF37';
     for (let i = 0; i < 6; i++) {
-      const holeAngle = (i / 6) * Math.PI * 2;
-      const holeX = -6 * scale + Math.cos(holeAngle) * 2 * scale;
-      const holeY = 5 * scale + Math.sin(holeAngle) * 3.5 * scale;
+      const bx = -15 * scale + i * 5.5 * scale;
+      const by = -2 * scale + i * 5.5 * scale;
       ctx.beginPath();
-      ctx.arc(holeX, holeY, 0.8 * scale, 0, Math.PI * 2);
+      ctx.ellipse(bx, by, 2 * scale, 3 * scale, 0.15, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = '#B8860B';
+      ctx.fillRect(bx - 1 * scale, by + 2 * scale, 2 * scale, 3 * scale);
+      ctx.fillStyle = '#D4AF37';
     }
-
-    // 扳机
-    ctx.strokeStyle = '#5a5a5a';
-    ctx.lineWidth = 1.5 * scale;
-    ctx.beginPath();
-    ctx.moveTo(0, 9 * scale);
-    ctx.quadraticCurveTo(2 * scale, 10 * scale, 1 * scale, 12 * scale);
-    ctx.stroke();
-
-    // 枪口火焰 - 不绘制动画
-
     ctx.restore();
-  }
 
-  /**
-   * 渲染神枪手预览（用于选角色界面）- 侧身西部牛仔风格
-   */
-  renderPreview(ctx: CanvasRenderingContext2D, config: CharacterConfig, params: PreviewRenderParams): void {
-    const { x, y, scale } = params;
-
-    // 腿部 - 侧身视图
-    // 后腿
-    ctx.fillStyle = '#1a1510';
-    ctx.beginPath();
-    ctx.ellipse(x - 5 * scale, y + 23 * scale, 5 * scale, 12 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(x - 9 * scale, y + 34 * scale, 8 * scale, 15 * scale);
+    // 腰带和枪套
+    ctx.fillStyle = '#654321';
+    ctx.fillRect(cx - 20 * scale, cy + 18 * scale, 40 * scale, 5 * scale);
     
-    // 牛仔靴
+    // 腰带扣
+    ctx.fillStyle = '#D4AF37';
+    ctx.beginPath();
+    ctx.moveTo(cx - 4 * scale, cy + 18 * scale);
+    ctx.lineTo(cx + 4 * scale, cy + 18 * scale);
+    ctx.lineTo(cx + 5 * scale, cy + 23 * scale);
+    ctx.lineTo(cx - 5 * scale, cy + 23 * scale);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#B8860B';
+    ctx.beginPath();
+    ctx.arc(cx, cy + 20.5 * scale, 2 * scale, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 右侧枪套
+    ctx.save();
+    ctx.translate(cx + 18 * scale, cy + 20 * scale);
+    ctx.rotate(0.1);
     ctx.fillStyle = '#5a3a20';
     ctx.beginPath();
-    ctx.moveTo(x - 9 * scale, y + 49 * scale);
-    ctx.lineTo(x, y + 49 * scale);
-    ctx.lineTo(x + 2 * scale, y + 56 * scale);
-    ctx.lineTo(x - 7 * scale, y + 56 * scale);
+    ctx.moveTo(-4 * scale, 0);
+    ctx.lineTo(4 * scale, 0);
+    ctx.lineTo(5 * scale, 20 * scale);
+    ctx.lineTo(-3 * scale, 20 * scale);
     ctx.closePath();
     ctx.fill();
-
-    // 前腿
-    ctx.fillStyle = '#2a2520';
-    ctx.beginPath();
-    ctx.ellipse(x + 5 * scale, y + 23 * scale, 5 * scale, 12 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillRect(x + 1 * scale, y + 34 * scale, 8 * scale, 15 * scale);
-    
-    // 牛仔靴
-    ctx.fillStyle = '#6a4a30';
-    ctx.beginPath();
-    ctx.moveTo(x + 1 * scale, y + 49 * scale);
-    ctx.lineTo(x + 10 * scale, y + 49 * scale);
-    ctx.lineTo(x + 12 * scale, y + 56 * scale);
-    ctx.lineTo(x + 3 * scale, y + 56 * scale);
-    ctx.closePath();
-    ctx.fill();
-
-    // 披风 - 西部牛仔风格
-    ctx.save();
-    ctx.translate(x - 8 * scale, y - 18 * scale);
-    ctx.rotate(-0.15);
-    
-    const capeGradient = ctx.createLinearGradient(0, 0, -30 * scale, 50 * scale);
-    capeGradient.addColorStop(0, '#4a3020');
-    capeGradient.addColorStop(0.3, '#3a2515');
-    capeGradient.addColorStop(0.7, '#2a1a0a');
-    capeGradient.addColorStop(1, '#1a1005');
-    
-    ctx.fillStyle = capeGradient;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(-8 * scale, 5 * scale);
-    ctx.quadraticCurveTo(-25 * scale, 15 * scale, -28 * scale, 35 * scale);
-    ctx.quadraticCurveTo(-30 * scale, 50 * scale, -25 * scale, 60 * scale);
-    ctx.lineTo(-20 * scale, 55 * scale);
-    ctx.quadraticCurveTo(-15 * scale, 45 * scale, -12 * scale, 35 * scale);
-    ctx.lineTo(-8 * scale, 20 * scale);
-    ctx.lineTo(0, 8 * scale);
-    ctx.closePath();
-    ctx.fill();
-    
-    // 披风边缘装饰
-    ctx.strokeStyle = '#5a4030';
-    ctx.lineWidth = 2 * scale;
-    ctx.stroke();
-    
-    // 披风纹理
-    ctx.strokeStyle = '#3a2515';
+    ctx.strokeStyle = '#7a5a40';
     ctx.lineWidth = 1 * scale;
-    ctx.globalAlpha = 0.5;
-    for (let i = 0; i < 4; i++) {
-      const y = 10 * scale + i * 10 * scale;
-      ctx.beginPath();
-      ctx.moveTo(-5 * scale, y);
-      ctx.quadraticCurveTo(-15 * scale, y + 5 * scale, -20 * scale, y + 8 * scale);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-    
-    // 披风扣子
-    ctx.fillStyle = '#8a7a60';
-    ctx.beginPath();
-    ctx.arc(0, 2 * scale, 2 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#aaa';
-    ctx.beginPath();
-    ctx.arc(-0.5 * scale, 1.5 * scale, 0.8 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    
+    ctx.stroke();
     ctx.restore();
 
     // 后手（左手）持枪
     ctx.save();
-    ctx.translate(x - 22 * scale, y + 2 * scale);
-    ctx.rotate(-0.3);
+    ctx.translate(cx - 10 * scale, cy + 5 * scale);
+    const leftArmAngle = isMoving ? Math.sin(walkCycle + Math.PI) * 0.18 : 0;
+    ctx.rotate(leftArmAngle + Math.PI / 2 + leftGunRecoil);
     
-    // 左臂
-    ctx.fillStyle = '#3a3530';
+    const leftArmGradient = ctx.createLinearGradient(-5 * scale, 0, 5 * scale, 0);
+    leftArmGradient.addColorStop(0, '#3a2a20');
+    leftArmGradient.addColorStop(0.5, '#4a3a30');
+    leftArmGradient.addColorStop(1, '#3a2a20');
+    ctx.fillStyle = leftArmGradient;
     ctx.beginPath();
-    ctx.ellipse(0, -3 * scale, 5 * scale, 11 * scale, 0.2, 0, Math.PI * 2);
+    ctx.ellipse(0, -3 * scale, 6 * scale, 12 * scale, 0.15, 0, Math.PI * 2);
     ctx.fill();
     
-    // 手
+    ctx.save();
+    ctx.translate(0, 10 * scale);
     ctx.fillStyle = '#ddaa88';
     ctx.beginPath();
-    ctx.ellipse(0, 7 * scale, 4 * scale, 5 * scale, 0.1, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, 4.5 * scale, 5 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
     
-    // 左轮手枪
-    this.drawRevolver(ctx, 0, 12 * scale, scale, 0.1);
+    ctx.fillStyle = '#cc9977';
+    ctx.fillRect(-1 * scale, -5 * scale, 1.5 * scale, 4 * scale);
+    ctx.fillRect(0.5 * scale, -5 * scale, 1.5 * scale, 4 * scale);
+    ctx.restore();
+    
+    ctx.save();
+    ctx.translate(0, 18 * scale);
+    this.drawColtRevolver(ctx, 0, 0, scale, 0, showMuzzleFlash && !isRapidFire);
+    ctx.restore();
     ctx.restore();
 
+    // 前手（右手）持枪
+    ctx.save();
+    ctx.translate(cx + 20 * scale, cy + 5 * scale);
+    const rightArmAngle = isMoving ? Math.sin(walkCycle) * 0.18 : 0;
+    ctx.rotate(rightArmAngle - Math.PI / 2 + rightGunRecoil);
+    
+    const rightArmGradient = ctx.createLinearGradient(-5 * scale, 0, 5 * scale, 0);
+    rightArmGradient.addColorStop(0, '#3a2a20');
+    rightArmGradient.addColorStop(0.5, '#5a4a40');
+    rightArmGradient.addColorStop(1, '#3a2a20');
+    ctx.fillStyle = rightArmGradient;
+    ctx.beginPath();
+    ctx.ellipse(0, -3 * scale, 6 * scale, 12 * scale, -0.15, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.save();
+    ctx.translate(0, 10 * scale);
+    ctx.fillStyle = '#ddaa88';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 4.5 * scale, 5 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#cc9977';
+    ctx.fillRect(-1 * scale, -5 * scale, 1.5 * scale, 4 * scale);
+    ctx.fillRect(0.5 * scale, -5 * scale, 1.5 * scale, 4 * scale);
+    ctx.restore();
+    
+    ctx.save();
+    ctx.translate(0, 18 * scale);
+    this.drawColtRevolver(ctx, 0, 0, scale, Math.PI, showMuzzleFlash && !isRapidFire);
+    ctx.restore();
+    ctx.restore();
+
+    // 头部
+    const headGradient = ctx.createRadialGradient(cx + 4 * scale, cy - 40 * scale, 0, cx, cy - 38 * scale, 14 * scale);
+    headGradient.addColorStop(0, '#f5d0a0');
+    headGradient.addColorStop(1, '#d4a070');
+    ctx.fillStyle = headGradient;
+    ctx.beginPath();
+    ctx.ellipse(cx + 2 * scale, cy - 38 * scale, 12 * scale, 15 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 墨镜
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.ellipse(cx + 6 * scale, cy - 40 * scale, 5 * scale, 3.5 * scale, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.moveTo(cx + 1 * scale, cy - 40 * scale);
+    ctx.lineTo(cx + 11 * scale, cy - 40 * scale);
+    ctx.stroke();
+    
+    // 墨镜反光
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.beginPath();
+    ctx.ellipse(cx + 4 * scale, cy - 41 * scale, 2 * scale, 1 * scale, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 胡茬
+    ctx.fillStyle = '#5a4a3a';
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.ellipse(cx + 8 * scale, cy - 26 * scale, 5 * scale, 4 * scale, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // 牛仔帽 - 更炫酷
+    ctx.save();
+    ctx.translate(cx, cy - 52 * scale);
+    
+    const hatGradient = ctx.createLinearGradient(-12 * scale, -15 * scale, 12 * scale, 5 * scale);
+    hatGradient.addColorStop(0, '#1a1a1a');
+    hatGradient.addColorStop(0.3, '#2a2a2a');
+    hatGradient.addColorStop(0.5, '#3a3a3a');
+    hatGradient.addColorStop(0.7, '#2a2a2a');
+    hatGradient.addColorStop(1, '#1a1a1a');
+    ctx.fillStyle = hatGradient;
+    
+    // 帽顶
+    ctx.beginPath();
+    ctx.ellipse(0, -8 * scale, 10 * scale, 12 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 帽檐 - 宽边翘起
+    ctx.beginPath();
+    ctx.moveTo(-22 * scale, 0);
+    ctx.quadraticCurveTo(-25 * scale, -3 * scale, -20 * scale, -5 * scale);
+    ctx.quadraticCurveTo(-10 * scale, -8 * scale, 0, -2 * scale);
+    ctx.quadraticCurveTo(10 * scale, -8 * scale, 20 * scale, -5 * scale);
+    ctx.quadraticCurveTo(25 * scale, -3 * scale, 22 * scale, 0);
+    ctx.quadraticCurveTo(15 * scale, 3 * scale, 0, 2 * scale);
+    ctx.quadraticCurveTo(-15 * scale, 3 * scale, -22 * scale, 0);
+    ctx.fill();
+    
+    // 帽带 - 金色
+    ctx.strokeStyle = '#D4AF37';
+    ctx.lineWidth = 3 * scale;
+    ctx.beginPath();
+    ctx.ellipse(0, -8 * scale, 10 * scale, 12 * scale, 0, Math.PI * 0.7, Math.PI * 1.3);
+    ctx.stroke();
+    
+    // 帽带装饰 - 鹰羽
+    ctx.fillStyle = '#8B0000';
+    ctx.save();
+    ctx.translate(8 * scale, -15 * scale);
+    ctx.rotate(-0.3);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(8 * scale, -5 * scale, 15 * scale, -8 * scale);
+    ctx.quadraticCurveTo(8 * scale, -3 * scale, 0, 3 * scale);
+    ctx.fill();
+    ctx.restore();
+    
+    // 帽子金属徽章
+    ctx.fillStyle = '#D4AF37';
+    ctx.beginPath();
+    ctx.arc(-8 * scale, -10 * scale, 3 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#B8860B';
+    ctx.beginPath();
+    ctx.arc(-8 * scale, -10 * scale, 1.5 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
+
+    // 围巾
+    ctx.fillStyle = '#8B0000';
+    ctx.beginPath();
+    ctx.moveTo(cx - 10 * scale, cy - 25 * scale);
+    ctx.quadraticCurveTo(cx + 5 * scale, cy - 22 * scale, cx + 12 * scale, cy - 25 * scale);
+    ctx.lineTo(cx + 8 * scale, cy - 18 * scale);
+    ctx.lineTo(cx - 6 * scale, cy - 18 * scale);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  /**
+   * 绘制柯尔特左轮手枪
+   */
+  private drawColtRevolver(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, angle: number, showFlash: boolean): void {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+
+    // 枪管
+    const barrelGradient = ctx.createLinearGradient(-3 * scale, -25 * scale, 3 * scale, 5 * scale);
+    barrelGradient.addColorStop(0, '#4a4a4a');
+    barrelGradient.addColorStop(0.3, '#6a6a6a');
+    barrelGradient.addColorStop(0.5, '#8a8a8a');
+    barrelGradient.addColorStop(0.7, '#6a6a6a');
+    barrelGradient.addColorStop(1, '#4a4a4a');
+    ctx.fillStyle = barrelGradient;
+    
+    // 枪管主体
+    ctx.beginPath();
+    ctx.moveTo(-3 * scale, -25 * scale);
+    ctx.lineTo(3 * scale, -25 * scale);
+    ctx.lineTo(3.5 * scale, 2 * scale);
+    ctx.lineTo(-3.5 * scale, 2 * scale);
+    ctx.closePath();
+    ctx.fill();
+    
+    // 枪管顶部瞄准器
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(-1 * scale, -27 * scale, 2 * scale, 3 * scale);
+
+    // 枪身
+    const bodyGradient = ctx.createLinearGradient(-6 * scale, 0, 6 * scale, 10 * scale);
+    bodyGradient.addColorStop(0, '#5a5a5a');
+    bodyGradient.addColorStop(0.5, '#7a7a7a');
+    bodyGradient.addColorStop(1, '#4a4a4a');
+    ctx.fillStyle = bodyGradient;
+    ctx.beginPath();
+    ctx.moveTo(-6 * scale, 2 * scale);
+    ctx.lineTo(6 * scale, 2 * scale);
+    ctx.lineTo(6 * scale, 10 * scale);
+    ctx.lineTo(-6 * scale, 10 * scale);
+    ctx.closePath();
+    ctx.fill();
+
+    // 转轮
+    ctx.fillStyle = '#4a4a4a';
+    ctx.beginPath();
+    ctx.ellipse(-7 * scale, 6 * scale, 4 * scale, 6 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 转轮弹孔
+    ctx.fillStyle = '#2a2a2a';
+    for (let i = 0; i < 6; i++) {
+      const holeAngle = (i / 6) * Math.PI * 2;
+      const holeX = -7 * scale + Math.cos(holeAngle) * 2.5 * scale;
+      const holeY = 6 * scale + Math.sin(holeAngle) * 4 * scale;
+      ctx.beginPath();
+      ctx.arc(holeX, holeY, 1 * scale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // 转轮中心
+    ctx.fillStyle = '#5a5a5a';
+    ctx.beginPath();
+    ctx.arc(-7 * scale, 6 * scale, 1.5 * scale, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 握把 - 珍珠质感
+    const gripGradient = ctx.createRadialGradient(0, 15 * scale, 0, 0, 18 * scale, 8 * scale);
+    gripGradient.addColorStop(0, '#f5f5dc');
+    gripGradient.addColorStop(0.3, '#faebd7');
+    gripGradient.addColorStop(0.6, '#f5deb3');
+    gripGradient.addColorStop(1, '#deb887');
+    ctx.fillStyle = gripGradient;
+    ctx.beginPath();
+    ctx.moveTo(-5 * scale, 10 * scale);
+    ctx.lineTo(5 * scale, 10 * scale);
+    ctx.lineTo(4 * scale, 22 * scale);
+    ctx.quadraticCurveTo(0, 25 * scale, -4 * scale, 22 * scale);
+    ctx.closePath();
+    ctx.fill();
+    
+    // 握把纹理
+    ctx.strokeStyle = 'rgba(139, 69, 19, 0.3)';
+    ctx.lineWidth = 0.5 * scale;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-3 * scale + i * 1.5 * scale, 12 * scale);
+      ctx.lineTo(-3 * scale + i * 1.5 * scale, 20 * scale);
+      ctx.stroke();
+    }
+
+    // 扳机护圈
+    ctx.strokeStyle = '#5a5a5a';
+    ctx.lineWidth = 2 * scale;
+    ctx.beginPath();
+    ctx.ellipse(0, 14 * scale, 4 * scale, 5 * scale, 0, Math.PI * 0.3, Math.PI * 0.7);
+    ctx.stroke();
+    
+    // 扳机
+    ctx.fillStyle = '#4a4a4a';
+    ctx.beginPath();
+    ctx.moveTo(0, 11 * scale);
+    ctx.quadraticCurveTo(2 * scale, 13 * scale, 1.5 * scale, 16 * scale);
+    ctx.lineTo(-0.5 * scale, 16 * scale);
+    ctx.quadraticCurveTo(-1 * scale, 13 * scale, 0, 11 * scale);
+    ctx.fill();
+
+    // 枪口火焰
+    if (showFlash) {
+      ctx.fillStyle = '#FFD700';
+      ctx.shadowColor = '#FF4500';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.moveTo(-4 * scale, -25 * scale);
+      ctx.lineTo(4 * scale, -25 * scale);
+      ctx.lineTo(0, -35 * scale);
+      ctx.closePath();
+      ctx.fill();
+      
+      ctx.fillStyle = '#FF4500';
+      ctx.beginPath();
+      ctx.moveTo(-2 * scale, -25 * scale);
+      ctx.lineTo(2 * scale, -25 * scale);
+      ctx.lineTo(0, -30 * scale);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * 绘制双枪连射特效
+   */
+  private drawRapidFireEffect(ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: number, progress: number, time: number): void {
+    ctx.save();
+    
+    // 能量光环
+    const pulse = Math.sin(time * 10) * 0.3 + 0.7;
+    
+    const glowGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, 50 * scale);
+    glowGradient.addColorStop(0, 'rgba(255, 215, 0, 0)');
+    glowGradient.addColorStop(0.5, `rgba(255, 165, 0, ${0.3 * pulse})`);
+    glowGradient.addColorStop(1, 'rgba(255, 69, 0, 0)');
+    ctx.fillStyle = glowGradient;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 50 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 弹壳飞溅效果
+    for (let i = 0; i < 6; i++) {
+      const shellAngle = time * 8 + i * (Math.PI / 3);
+      const shellDistance = 30 * scale + Math.sin(time * 5 + i) * 10 * scale;
+      const shellX = cx + Math.cos(shellAngle) * shellDistance;
+      const shellY = cy - 20 * scale + Math.sin(shellAngle) * shellDistance * 0.5;
+      
+      ctx.fillStyle = '#D4AF37';
+      ctx.save();
+      ctx.translate(shellX, shellY);
+      ctx.rotate(shellAngle * 3);
+      ctx.fillRect(-1.5 * scale, -4 * scale, 3 * scale, 8 * scale);
+      ctx.restore();
+    }
+    
+    // 火花粒子
+    for (let i = 0; i < 12; i++) {
+      const sparkAngle = time * 15 + i * (Math.PI / 6);
+      const sparkDistance = 20 * scale + Math.sin(time * 8 + i) * 15 * scale;
+      const sparkX = cx + Math.cos(sparkAngle) * sparkDistance;
+      const sparkY = cy + Math.sin(sparkAngle) * sparkDistance * 0.6;
+      const sparkSize = 2 + Math.sin(time * 12 + i) * 1.5;
+      
+      ctx.fillStyle = `rgba(255, 200, 50, ${0.8 * pulse})`;
+      ctx.beginPath();
+      ctx.arc(sparkX, sparkY, sparkSize * scale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    ctx.restore();
+  }
+
+  /**
+   * 渲染预览
+   */
+  renderPreview(ctx: CanvasRenderingContext2D, config: CharacterConfig, params: PreviewRenderParams): void {
+    const { x, y, scale } = params;
+
+    // 斗篷
+    ctx.save();
+    ctx.translate(x - 12 * scale, y - 15 * scale);
+    ctx.rotate(-0.2);
+    
+    const capeGradient = ctx.createLinearGradient(0, 0, -40 * scale, 70 * scale);
+    capeGradient.addColorStop(0, '#8B0000');
+    capeGradient.addColorStop(0.5, '#5B0000');
+    capeGradient.addColorStop(1, '#3B0000');
+    
+    ctx.fillStyle = capeGradient;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-15 * scale, 15 * scale, -35 * scale, 35 * scale, -30 * scale, 60 * scale);
+    ctx.lineTo(-15 * scale, 55 * scale);
+    ctx.quadraticCurveTo(-5 * scale, 35 * scale, 0, 20 * scale);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // 腿部
+    ctx.fillStyle = '#1a1510';
+    ctx.beginPath();
+    ctx.ellipse(x - 6 * scale, y + 23 * scale, 6 * scale, 14 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(x - 11 * scale, y + 36 * scale, 10 * scale, 18 * scale);
+    
+    ctx.fillStyle = '#8B4513';
+    ctx.beginPath();
+    ctx.moveTo(x - 11 * scale, y + 53 * scale);
+    ctx.lineTo(x, y + 53 * scale);
+    ctx.lineTo(x + 4 * scale, y + 62 * scale);
+    ctx.lineTo(x - 7 * scale, y + 62 * scale);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#2a2520';
+    ctx.beginPath();
+    ctx.ellipse(x + 6 * scale, y + 23 * scale, 6 * scale, 14 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(x + 1 * scale, y + 36 * scale, 10 * scale, 18 * scale);
+    
+    ctx.fillStyle = '#A0522D';
+    ctx.beginPath();
+    ctx.moveTo(x + 1 * scale, y + 53 * scale);
+    ctx.lineTo(x + 12 * scale, y + 53 * scale);
+    ctx.lineTo(x + 16 * scale, y + 62 * scale);
+    ctx.lineTo(x + 5 * scale, y + 62 * scale);
+    ctx.closePath();
+    ctx.fill();
+
     // 身体
-    const bodyGradient = ctx.createRadialGradient(x - 3 * scale, y - 5 * scale, 0, x, y, 22 * scale);
+    const bodyGradient = ctx.createRadialGradient(x - 2 * scale, y - 5 * scale, 0, x, y, 25 * scale);
     bodyGradient.addColorStop(0, '#4a4540');
     bodyGradient.addColorStop(0.5, config.color);
     bodyGradient.addColorStop(1, '#2a2520');
     ctx.fillStyle = bodyGradient;
     ctx.beginPath();
-    ctx.ellipse(x, y, 16 * scale, 26 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y, 18 * scale, 28 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 牛仔马甲
-    ctx.fillStyle = '#3a2520';
+    // 皮夹克
+    ctx.fillStyle = '#3a2a20';
     ctx.beginPath();
-    ctx.moveTo(x - 12 * scale, y - 20 * scale);
-    ctx.lineTo(x + 10 * scale, y - 20 * scale);
-    ctx.lineTo(x + 8 * scale, y + 20 * scale);
-    ctx.lineTo(x, y + 22 * scale);
-    ctx.lineTo(x - 10 * scale, y + 18 * scale);
+    ctx.moveTo(x - 16 * scale, y - 22 * scale);
+    ctx.lineTo(x + 14 * scale, y - 22 * scale);
+    ctx.lineTo(x + 12 * scale, y + 22 * scale);
+    ctx.lineTo(x, y + 25 * scale);
+    ctx.lineTo(x - 14 * scale, y + 20 * scale);
     ctx.closePath();
     ctx.fill();
+
+    // 子弹带
+    ctx.strokeStyle = '#8B4513';
+    ctx.lineWidth = 4 * scale;
+    ctx.beginPath();
+    ctx.moveTo(x - 18 * scale, y - 20 * scale);
+    ctx.lineTo(x + 15 * scale, y + 15 * scale);
+    ctx.stroke();
     
-    // 马甲扣子
-    ctx.fillStyle = '#8a8a8a';
-    for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = '#D4AF37';
+    for (let i = 0; i < 6; i++) {
+      const bx = x - 15 * scale + i * 5.5 * scale;
+      const by = y - 17 * scale + i * 5.5 * scale;
       ctx.beginPath();
-      ctx.arc(x, y - 12 * scale + i * 10 * scale, 1.5 * scale, 0, Math.PI * 2);
+      ctx.ellipse(bx, by, 2 * scale, 3 * scale, 0.15, 0, Math.PI * 2);
       ctx.fill();
     }
-    
-    // 披风围巾
-    ctx.fillStyle = '#5a2a20';
+
+    // 腰带
+    ctx.fillStyle = '#654321';
+    ctx.fillRect(x - 20 * scale, y + 18 * scale, 40 * scale, 5 * scale);
+    ctx.fillStyle = '#D4AF37';
     ctx.beginPath();
-    ctx.moveTo(x - 8 * scale, y - 22 * scale);
-    ctx.quadraticCurveTo(x + 5 * scale, y - 20 * scale, x + 8 * scale, y - 22 * scale);
-    ctx.lineTo(x + 5 * scale, y - 15 * scale);
-    ctx.lineTo(x - 5 * scale, y - 15 * scale);
-    ctx.closePath();
+    ctx.arc(x, y + 20.5 * scale, 3 * scale, 0, Math.PI * 2);
     ctx.fill();
 
-    // 前手（右手）持枪
+    // 后手
     ctx.save();
-    ctx.translate(x + 22 * scale, y + 2 * scale);
-    ctx.rotate(0.3);
-    
-    // 右臂
-    ctx.fillStyle = '#3a3530';
+    ctx.translate(x - 22 * scale, y + 5 * scale);
+    ctx.rotate(-0.3);
+    ctx.fillStyle = '#3a2a20';
     ctx.beginPath();
-    ctx.ellipse(0, -3 * scale, 5 * scale, 11 * scale, -0.2, 0, Math.PI * 2);
+    ctx.ellipse(0, -3 * scale, 6 * scale, 12 * scale, 0.15, 0, Math.PI * 2);
     ctx.fill();
-    
-    // 手
     ctx.fillStyle = '#ddaa88';
     ctx.beginPath();
-    ctx.ellipse(0, 7 * scale, 4 * scale, 5 * scale, -0.1, 0, Math.PI * 2);
+    ctx.ellipse(0, 10 * scale, 4.5 * scale, 5 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
-    
-    // 左轮手枪
-    this.drawRevolver(ctx, 0, 12 * scale, scale, -0.1);
+    this.drawColtRevolver(ctx, 0, 18 * scale, scale, 0.1, false);
+    ctx.restore();
+
+    // 前手
+    ctx.save();
+    ctx.translate(x + 22 * scale, y + 5 * scale);
+    ctx.rotate(0.3);
+    ctx.fillStyle = '#4a3a30';
+    ctx.beginPath();
+    ctx.ellipse(0, -3 * scale, 6 * scale, 12 * scale, -0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ddaa88';
+    ctx.beginPath();
+    ctx.ellipse(0, 10 * scale, 4.5 * scale, 5 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    this.drawColtRevolver(ctx, 0, 18 * scale, scale, Math.PI - 0.1, false);
     ctx.restore();
 
     // 头部
-    const headGradient = ctx.createRadialGradient(x + 3 * scale, y - 38 * scale, 0, x, y - 35 * scale, 11 * scale);
-    headGradient.addColorStop(0, '#eec090');
-    headGradient.addColorStop(1, '#cc8866');
+    const headGradient = ctx.createRadialGradient(x + 4 * scale, y - 40 * scale, 0, x, y - 38 * scale, 14 * scale);
+    headGradient.addColorStop(0, '#f5d0a0');
+    headGradient.addColorStop(1, '#d4a070');
     ctx.fillStyle = headGradient;
     ctx.beginPath();
-    ctx.ellipse(x, y - 35 * scale, 10 * scale, 13 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 2 * scale, y - 38 * scale, 12 * scale, 15 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // 墨镜
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath();
+    ctx.ellipse(x + 6 * scale, y - 40 * scale, 5 * scale, 3.5 * scale, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.moveTo(x + 1 * scale, y - 40 * scale);
+    ctx.lineTo(x + 11 * scale, y - 40 * scale);
+    ctx.stroke();
 
     // 牛仔帽
     ctx.save();
-    ctx.translate(x, y - 48 * scale);
+    ctx.translate(x, y - 52 * scale);
     
-    const hatGradient = ctx.createLinearGradient(-8 * scale, -10 * scale, 8 * scale, 0);
-    hatGradient.addColorStop(0, '#3a2a20');
-    hatGradient.addColorStop(0.5, '#4a3a30');
-    hatGradient.addColorStop(1, '#2a1a10');
+    const hatGradient = ctx.createLinearGradient(-12 * scale, -15 * scale, 12 * scale, 5 * scale);
+    hatGradient.addColorStop(0, '#1a1a1a');
+    hatGradient.addColorStop(0.5, '#3a3a3a');
+    hatGradient.addColorStop(1, '#1a1a1a');
     ctx.fillStyle = hatGradient;
     
-    // 帽顶
     ctx.beginPath();
-    ctx.ellipse(0, -5 * scale, 8 * scale, 10 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, -8 * scale, 10 * scale, 12 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
     
-    // 帽檐
     ctx.beginPath();
-    ctx.ellipse(0, 0, 18 * scale, 5 * scale, 0, 0, Math.PI * 2);
+    ctx.moveTo(-22 * scale, 0);
+    ctx.quadraticCurveTo(-25 * scale, -3 * scale, -20 * scale, -5 * scale);
+    ctx.quadraticCurveTo(-10 * scale, -8 * scale, 0, -2 * scale);
+    ctx.quadraticCurveTo(10 * scale, -8 * scale, 20 * scale, -5 * scale);
+    ctx.quadraticCurveTo(25 * scale, -3 * scale, 22 * scale, 0);
+    ctx.quadraticCurveTo(15 * scale, 3 * scale, 0, 2 * scale);
+    ctx.quadraticCurveTo(-15 * scale, 3 * scale, -22 * scale, 0);
     ctx.fill();
     
-    // 帽带
-    ctx.strokeStyle = '#5a4a40';
-    ctx.lineWidth = 2 * scale;
+    ctx.strokeStyle = '#D4AF37';
+    ctx.lineWidth = 3 * scale;
     ctx.beginPath();
-    ctx.ellipse(0, -5 * scale, 8 * scale, 10 * scale, 0, Math.PI * 0.8, Math.PI * 1.2);
+    ctx.ellipse(0, -8 * scale, 10 * scale, 12 * scale, 0, Math.PI * 0.7, Math.PI * 1.3);
     ctx.stroke();
     
-    // 帽子装饰
-    ctx.fillStyle = '#8a7a60';
+    ctx.fillStyle = '#8B0000';
+    ctx.save();
+    ctx.translate(8 * scale, -15 * scale);
+    ctx.rotate(-0.3);
     ctx.beginPath();
-    ctx.arc(0, -12 * scale, 2 * scale, 0, Math.PI * 2);
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(8 * scale, -5 * scale, 15 * scale, -8 * scale);
+    ctx.quadraticCurveTo(8 * scale, -3 * scale, 0, 3 * scale);
     ctx.fill();
     ctx.restore();
-
-    // 眼睛 - 侧脸
-    ctx.fillStyle = '#5a4a3a';
+    
+    ctx.fillStyle = '#D4AF37';
     ctx.beginPath();
-    ctx.ellipse(x + 4 * scale, y - 36 * scale, 2 * scale, 2.5 * scale, 0, 0, Math.PI * 2);
+    ctx.arc(-8 * scale, -10 * scale, 3 * scale, 0, Math.PI * 2);
     ctx.fill();
     
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.ellipse(x + 4 * scale, y - 36 * scale, 1.2 * scale, 1.5 * scale, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.fillStyle = '#2a2a2a';
-    ctx.beginPath();
-    ctx.arc(x + 4.5 * scale, y - 36 * scale, 0.8 * scale, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.restore();
 
-    // 眉毛
-    ctx.strokeStyle = '#3a2a1a';
-    ctx.lineWidth = 2 * scale;
+    // 围巾
+    ctx.fillStyle = '#8B0000';
     ctx.beginPath();
-    ctx.moveTo(x + 2 * scale, y - 40 * scale);
-    ctx.lineTo(x + 6 * scale, y - 38 * scale);
-    ctx.stroke();
-
-    // 胡茬
-    ctx.fillStyle = '#5a4a3a';
-    ctx.globalAlpha = 0.4;
-    ctx.beginPath();
-    ctx.ellipse(x + 5 * scale, y - 24 * scale, 4 * scale, 3 * scale, 0.2, 0, Math.PI * 2);
+    ctx.moveTo(x - 10 * scale, y - 25 * scale);
+    ctx.quadraticCurveTo(x + 5 * scale, y - 22 * scale, x + 12 * scale, y - 25 * scale);
+    ctx.lineTo(x + 8 * scale, y - 18 * scale);
+    ctx.lineTo(x - 6 * scale, y - 18 * scale);
+    ctx.closePath();
     ctx.fill();
-    ctx.globalAlpha = 1;
   }
 }

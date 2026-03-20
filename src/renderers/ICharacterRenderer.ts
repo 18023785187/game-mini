@@ -25,6 +25,10 @@ export interface RenderParams {
   isRapidFire: boolean;      // 是否在双枪连射中
   rapidFireProgress: number; // 双枪连射进度 0-1
   rapidFireShotsFired: number; // 已射击次数
+  // 肉盾技能状态
+  isShielding: boolean;      // 是否举盾防御中
+  isArmored: boolean;        // 是否装甲模式
+  armorProgress: number;     // 装甲模式进度 0-1
 }
 
 /**
